@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+:root {
+  --cat-base: #1e1e2e;
+  --cat-mantle: #181825;
+  --cat-crust: #11111b;
+  --cat-text: #cdd6f4;
+  --cat-subtext0: #a6adc8;
+  --cat-subtext1: #bac2de;
+  --cat-surface0: #313244;
+  --cat-surface1: #45475a;
+  --cat-surface2: #585b70;
+  --cat-overlay0: #6c7086;
+  --cat-overlay1: #7f849c;
+  --cat-overlay2: #9399b2;
+  --cat-blue: #89b4fa;
+  --cat-lavender: #b4befe;
+  --cat-sapphire: #74c7ec;
+  --cat-sky: #89dceb;
+  --cat-teal: #94e2d5;
+  --cat-green: #a6e3a1;
+  --cat-yellow: #f9e2af;
+  --cat-peach: #fab387;
+  --cat-maroon: #eba0ac;
+  --cat-red: #f38ba8;
+  --cat-mauve: #cba6f7;
+  --cat-pink: #f5c2e7;
+  --cat-flamingo: #f2cdcd;
+  --cat-rosewater: #f5e0dc;
+
+  --background: var(--cat-base);
+  --foreground: var(--cat-text);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-mocha-base: var(--cat-base);
+  --color-mocha-mantle: var(--cat-mantle);
+  --color-mocha-crust: var(--cat-crust);
+  --color-mocha-text: var(--cat-text);
+  --color-mocha-subtext0: var(--cat-subtext0);
+  --color-mocha-subtext1: var(--cat-subtext1);
+  --color-mocha-surface0: var(--cat-surface0);
+  --color-mocha-surface1: var(--cat-surface1);
+  --color-mocha-surface2: var(--cat-surface2);
+  --color-mocha-overlay0: var(--cat-overlay0);
+  --color-mocha-overlay1: var(--cat-overlay1);
+  --color-mocha-overlay2: var(--cat-overlay2);
+  --color-mocha-blue: var(--cat-blue);
+  --color-mocha-lavender: var(--cat-lavender);
+  --color-mocha-sapphire: var(--cat-sapphire);
+  --color-mocha-sky: var(--cat-sky);
+  --color-mocha-teal: var(--cat-teal);
+  --color-mocha-green: var(--cat-green);
+  --color-mocha-yellow: var(--cat-yellow);
+  --color-mocha-peach: var(--cat-peach);
+  --color-mocha-maroon: var(--cat-maroon);
+  --color-mocha-red: var(--cat-red);
+  --color-mocha-mauve: var(--cat-mauve);
+  --color-mocha-pink: var(--cat-pink);
+  --color-mocha-flamingo: var(--cat-flamingo);
+  --color-mocha-rosewater: var(--cat-rosewater);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-space: var(--font-space-grotesk);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  @apply antialiased;
+}
