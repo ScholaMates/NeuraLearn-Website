@@ -74,14 +74,11 @@ create policy "Users can insert messages in own chats" on messages for insert wi
   exists ( select 1 from chats where chats.id = messages.chat_id and chats.user_id = auth.uid() )
 );
 
--- Device ID
+-- Device ID 
 insert into device_ids (code) values 
-  ('DEVICE-1234'), 
-  ('DEVICE-5678'), 
-  ('DEVICE-9012')
+  ('DEVICE-0'), -- Examples
+  ('DEVICE-1'), 
+  ('DEVICE-2')
 on conflict (code) do nothing;
 ```
 
-## Note 
-
-.env doesn't work for some reason.
