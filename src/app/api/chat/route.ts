@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createClient } from '@/lib/supabase/server';
-
+import tutorModes from '@/config/tutorModes.json';
+import responseLengths from '@/config/responseLengths.json';
+import academicLevels from '@/config/academicLevels.json';
 
 const API = process.env.GEMINI_API_KEY!;
 const genAI = new GoogleGenerativeAI(API);
@@ -88,17 +90,32 @@ export async function POST(request: Request) {
         // Fetch user profile for personalization
         const { data: profile } = await supabase
             .from('profiles')
-            .select('nickname, occupation, about_me')
+            .select('nickname, tutor_mode, response_length, academic_level, major, about_me')
             .eq('id', user.id)
             .single();
 
         let systemInstruction = "You are a helpful AI assistant. Use LaTeX for mathematical expressions. Wrap inline math in single dollar signs ($) and block math in double dollar signs ($$).";
+
         if (profile) {
-            const { nickname, occupation, about_me } = profile;
+            const { nickname, tutor_mode, response_length, academic_level, major, about_me } = profile;
+
             const parts = [];
+
             if (nickname) parts.push(`The user's nickname is ${nickname}.`);
-            if (occupation) parts.push(`The user is a ${occupation}.`);
-            if (about_me) parts.push(`Here is more info about the user: ${about_me}`);
+
+            // Apply Context from Profile
+            if (major) parts.push(`The user's major/field of study is ${major}. Use relevant analogies.`);
+            if (about_me) parts.push(`User info: ${about_me}`);
+
+            // Apply Configuration Lookups
+            const modeConfig = tutorModes.find(m => m.id === tutor_mode);
+            if (modeConfig) parts.push(modeConfig.prompt);
+
+            const lengthConfig = responseLengths.find(l => l.id === response_length);
+            if (lengthConfig) parts.push(lengthConfig.prompt);
+
+            const levelConfig = academicLevels.find(l => l.id === academic_level);
+            if (levelConfig) parts.push(levelConfig.prompt);
 
             if (parts.length > 0) {
                 systemInstruction += " " + parts.join(" ");

@@ -6,6 +6,9 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import tutorModes from '@/config/tutorModes.json';
+import responseLengths from '@/config/responseLengths.json';
+import academicLevels from '@/config/academicLevels.json';
 
 export default function PersonalizationPage() {
     const router = useRouter();
@@ -14,7 +17,10 @@ export default function PersonalizationPage() {
     const [saving, setSaving] = useState(false);
     const [formData, setFormData] = useState({
         nickname: '',
-        occupation: '',
+        tutor_mode: 'socratic',
+        response_length: 'concise',
+        academic_level: 'undergraduate',
+        major: '',
         about_me: '',
     });
 
@@ -28,14 +34,17 @@ export default function PersonalizationPage() {
 
             const { data, error } = await supabase
                 .from('profiles')
-                .select('nickname, occupation, about_me')
+                .select('nickname, tutor_mode, response_length, academic_level, major, about_me')
                 .eq('id', session.user.id)
                 .single();
 
             if (data) {
                 setFormData({
                     nickname: data.nickname || '',
-                    occupation: data.occupation || '',
+                    tutor_mode: data.tutor_mode || 'socratic',
+                    response_length: data.response_length || 'concise',
+                    academic_level: data.academic_level || 'undergraduate',
+                    major: data.major || '',
                     about_me: data.about_me || '',
                 });
             }
@@ -45,7 +54,7 @@ export default function PersonalizationPage() {
         fetchProfile();
     }, [router]);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
@@ -93,7 +102,7 @@ export default function PersonalizationPage() {
                     </Link>
                     <div>
                         <h1 className="text-2xl font-bold">Personalization</h1>
-                        <p className="text-mocha-subtext0 text-sm">Tell the AI about yourself to get better responses.</p>
+                        <p className="text-mocha-subtext0 text-sm">Tell the AI about your preferences to get better responses.</p>
                     </div>
                 </div>
 
@@ -114,16 +123,67 @@ export default function PersonalizationPage() {
                     </div>
 
                     <div>
-                        <label htmlFor="occupation" className="block text-sm font-medium text-mocha-text mb-2">
-                            Occupation
+                        <label htmlFor="tutor_mode" className="block text-sm font-medium text-mocha-text mb-2">
+                            Tutor Mode
+                        </label>
+                        <select
+                            id="tutor_mode"
+                            name="tutor_mode"
+                            value={formData.tutor_mode}
+                            onChange={handleChange}
+                            className="block w-full rounded-md border-0 bg-mocha-surface1 py-2 px-3 text-mocha-text ring-1 ring-inset ring-mocha-surface2 focus:ring-2 focus:ring-inset focus:ring-mocha-mauve sm:text-sm sm:leading-6"
+                        >
+                            {tutorModes.map(mode => (
+                                <option key={mode.id} value={mode.id}>{mode.label} - {mode.description}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label htmlFor="response_length" className="block text-sm font-medium text-mocha-text mb-2">
+                            Response Length
+                        </label>
+                        <select
+                            id="response_length"
+                            name="response_length"
+                            value={formData.response_length}
+                            onChange={handleChange}
+                            className="block w-full rounded-md border-0 bg-mocha-surface1 py-2 px-3 text-mocha-text ring-1 ring-inset ring-mocha-surface2 focus:ring-2 focus:ring-inset focus:ring-mocha-mauve sm:text-sm sm:leading-6"
+                        >
+                            {responseLengths.map(length => (
+                                <option key={length.id} value={length.id}>{length.label} - {length.description}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label htmlFor="academic_level" className="block text-sm font-medium text-mocha-text mb-2">
+                            Academic Level
+                        </label>
+                        <select
+                            id="academic_level"
+                            name="academic_level"
+                            value={formData.academic_level}
+                            onChange={handleChange}
+                            className="block w-full rounded-md border-0 bg-mocha-surface1 py-2 px-3 text-mocha-text ring-1 ring-inset ring-mocha-surface2 focus:ring-2 focus:ring-inset focus:ring-mocha-mauve sm:text-sm sm:leading-6"
+                        >
+                            {academicLevels.map(level => (
+                                <option key={level.id} value={level.id}>{level.label}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label htmlFor="major" className="block text-sm font-medium text-mocha-text mb-2">
+                            Major / Field of Study
                         </label>
                         <input
                             type="text"
-                            id="occupation"
-                            name="occupation"
-                            value={formData.occupation}
+                            id="major"
+                            name="major"
+                            value={formData.major}
                             onChange={handleChange}
-                            placeholder="e.g. Software Engineer, Student, Artist"
+                            placeholder="e.g. Computer Science, Biology, Literature"
                             className="block w-full rounded-md border-0 bg-mocha-surface1 py-2 px-3 text-mocha-text ring-1 ring-inset ring-mocha-surface2 placeholder:text-mocha-overlay0 focus:ring-2 focus:ring-inset focus:ring-mocha-mauve sm:text-sm sm:leading-6"
                         />
                     </div>
@@ -138,7 +198,7 @@ export default function PersonalizationPage() {
                             rows={4}
                             value={formData.about_me}
                             onChange={handleChange}
-                            placeholder="Share your interests, hobbies, or coding style preferences..."
+                            placeholder="Share your specific interests or learning goals..."
                             className="block w-full rounded-md border-0 bg-mocha-surface1 py-2 px-3 text-mocha-text ring-1 ring-inset ring-mocha-surface2 placeholder:text-mocha-overlay0 focus:ring-2 focus:ring-inset focus:ring-mocha-mauve sm:text-sm sm:leading-6"
                         />
                     </div>

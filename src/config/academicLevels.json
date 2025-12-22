@@ -1,0 +1,22 @@
+[
+    {
+        "id": "high_school",
+        "label": "High School",
+        "prompt": "Target the explanation for a High School student level."
+    },
+    {
+        "id": "undergraduate",
+        "label": "Undergraduate",
+        "prompt": "Target the explanation for an Undergraduate University student level."
+    },
+    {
+        "id": "graduate",
+        "label": "Graduate",
+        "prompt": "Target the explanation for a Graduate level researcher or professional."
+    },
+    {
+        "id": "hobbyist",
+        "label": "Hobbyist",
+        "prompt": "Target the explanation for an enthusiastic hobbyist."
+    }
+]

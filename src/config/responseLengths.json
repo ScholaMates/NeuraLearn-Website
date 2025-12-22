@@ -1,0 +1,14 @@
+[
+    {
+        "id": "concise",
+        "label": "Concise",
+        "description": "Short, direct answers.",
+        "prompt": "Keep responses concise and to the point. Avoid unnecessary fluff."
+    },
+    {
+        "id": "detailed",
+        "label": "Detailed",
+        "description": "In-depth explanations with context.",
+        "prompt": "Provide detailed responses with comprehensive explanations, examples, and context."
+    }
+]
