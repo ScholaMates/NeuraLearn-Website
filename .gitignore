@@ -1,5 +1,5 @@
-config.json
 node_modules
 .env
 output/
 package-lock.json
+.next/

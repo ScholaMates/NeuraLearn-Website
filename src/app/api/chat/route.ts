@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createClient } from '@/lib/supabase/server';
-import config from '../../../../config.json'
 
-const API = config.geminiApiKey;
+
+const API = process.env.GEMINI_API_KEY!;
 const genAI = new GoogleGenerativeAI(API);
 
 export async function POST(request: Request) {
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
 
             try {
                 // Generate a short title using Gemini 
-                const titleModel = genAI.getGenerativeModel({ model: config.geminiAIModel });
+                const titleModel = genAI.getGenerativeModel({ model: process.env.GEMINI_AI_MODEL! });
                 const titleResult = await titleModel.generateContent(`Generate a short, descriptive, and engaging title (max 6 words) for a conversation starting with this message. It should capture the essence of the user's intent. Do not use quotes: ${message}`);
                 const titleResponse = await titleResult.response;
                 title = titleResponse.text().trim();
@@ -106,7 +106,7 @@ export async function POST(request: Request) {
         }
 
         const model = genAI.getGenerativeModel({
-            model: config.geminiAIModel,
+            model: process.env.GEMINI_AI_MODEL!,
             systemInstruction: systemInstruction
         });
 

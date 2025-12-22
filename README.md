@@ -1,88 +1,93 @@
-## NeuraLearn-Website
-## Schema
+# NeuraLearn Website
 
-Run this SQL Editor (Supabase):
+NeuraLearn is an AI-powered educational web application built with Next.js and Supabase. It provides an interactive chat interface leveraging Google's Gemini AI to assist users with learning and problem-solving, featuring robust support for mathematical notation.
+
+## Key Features
+
+- **AI-Powered Assistance**: Integrated with Google Gemini AI to provide intelligent responses and tutoring.
+- **Mathematical Notation Support**: Renders complex mathematical expressions using KaTeX and LaTeX syntax.
+- **Secure Authentication**: User management and authentication powered by Supabase.
+- **Persistent Chat History**: Stores user conversations and context for a continuous learning experience.
+- **Responsive Design**: Modern, responsive user interface built with Tailwind CSS.
+- **Markdown Support**: Rich text rendering for chat messages including code blocks and formatting.
+
+## Prerequisites
+
+Before starting, ensure you have the following installed:
+
+- Node.js (Latest LTS version recommended)
+- npm or bun
+- A Supabase account
+- A Google Cloud account with Gemini API access
+
+## Installation and Setup
+
+Follow these steps to set up the project locally.
+
+### 1. Clone the Repository
+
+Clone the project to your local machine:
 
 ```bash
--- 1. Device IDs Table
-create table public.device_ids (
-  id uuid default gen_random_uuid() primary key,
-  code text unique not null,
-  is_used boolean default false,
-  used_at timestamp with time zone,
-  created_at timestamp with time zone default timezone('utc'::text, now())
-);
-
--- 2. Profiles Table (Extends auth.users)
-create table public.profiles (
-  id uuid references auth.users on delete cascade primary key,
-  username text,
-  email text,
-  password text, -- Note: Storing plain text passwords here.
-  device_id text,
-  nickname text,
-  occupation text,
-  about_me text,
-  avatar_url text,
-  updated_at timestamp with time zone,
-  created_at timestamp with time zone default timezone('utc'::text, now())
-);
-
--- 3. Chats Table
-create table public.chats (
-  id uuid default gen_random_uuid() primary key,
-  user_id uuid references auth.users on delete cascade not null,
-  title text not null,
-  created_at timestamp with time zone default timezone('utc'::text, now())
-);
-
--- 4. Messages Table
-create table public.messages (
-  id uuid default gen_random_uuid() primary key,
-  chat_id uuid references public.chats on delete cascade not null,
-  role text check (role in ('user', 'model')),
-  content text not null,
-  created_at timestamp with time zone default timezone('utc'::text, now())
-);
-
--- Enable RLS on all tables
-alter table public.device_ids enable row level security;
-alter table public.profiles enable row level security;
-alter table public.chats enable row level security;
-alter table public.messages enable row level security;
-
--- Policies
-
--- Device IDs: Public read (for validation), Service Role write
-create policy "Device IDs are viewable by everyone" on device_ids for select using (true);
-
--- Profiles: Public read (or authenticated), User update own
-create policy "Public profiles are viewable by everyone" on profiles for select using (true);
-create policy "Users can insert their own profile" on profiles for insert with check (auth.uid() = id);
-create policy "Users can update their own profile" on profiles for update using (auth.uid() = id);
-
--- Chats: User can CRUD own chats
-create policy "Users can view own chats" on chats for select using (auth.uid() = user_id);
-create policy "Users can insert own chats" on chats for insert with check (auth.uid() = user_id);
-create policy "Users can update own chats" on chats for update using (auth.uid() = user_id);
-create policy "Users can delete own chats" on chats for delete using (auth.uid() = user_id);
-
--- Messages: User can CRUD messages in their chats
-create policy "Users can view messages in own chats" on messages for select using (
-  exists ( select 1 from chats where chats.id = messages.chat_id and chats.user_id = auth.uid() )
-);
-create policy "Users can insert messages in own chats" on messages for insert with check (
-  exists ( select 1 from chats where chats.id = messages.chat_id and chats.user_id = auth.uid() )
-);
-
--- Device ID
-insert into device_ids (code) values 
-  ('DEVICE-1234'), 
-  ('DEVICE-5678'), 
-  ('DEVICE-9012')
-on conflict (code) do nothing;
+git clone https://github.com/ScholaMates/NeuraLearn-Website.git
+cd NeuraLearn-Website
 ```
 
-## Note 
+### 2. Install Dependencies
 
-.env doesn't work for some reason.
+Install the necessary dependencies using your preferred package manager:
+
+```bash
+npm install
+# or
+bun install
+```
+
+### 3. Environment Configuration
+
+This project uses environment variables for configuration.
+
+1.  Create a `.env` file in the root directory by copying the example file:
+    ```bash
+    cp .env.example .env
+    ```
+
+2.  Open the `.env` file and populate it with your specific keys:
+
+    -   `GEMINI_API_KEY`: Your Google Gemini API key.
+    -   `GEMINI_AI_MODEL`: The model version to use (e.g., gemini-3-flash-preview).
+    -   `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase Project URL.
+    -   `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase Project API Anon/Public Key.
+    -   `SUPABASE_SERVICE_ROLE_KEY`: Your Supabase Service Role Key (Required for admin tasks, keep this secret).
+
+### 4. Database Setup
+
+To configure the database schema and policies:
+
+1.  Log in to your Supabase Dashboard.
+2.  Navigate to the SQL Editor.
+3.  Execute the SQL scripts found in `SchemaConfig.md` in this repository to set up the necessary tables (Profiles, Chats, Messages) and Row Level Security (RLS) policies.
+
+### 5. Running the Application
+
+Start the development server:
+
+```bash
+npm run dev
+# or
+bun run dev
+```
+
+The application will be available at `http://localhost:3000`.
+
+## Technologies Used
+
+-   **Framework**: Next.js 16, React 19, React DOM 19
+-   **Database & Auth**: Supabase (@supabase/supabase-js, @supabase/ssr)
+-   **AI**: Google Generative AI SDK (@google/generative-ai)
+-   **Styling**: Tailwind CSS
+-   **Markdown & Math**: react-markdown, KaTeX, remark-math, rehype-katex
+-   **Animations**: Anime.js
+-   **Icons**: Lucide React
+-   **UI Components**: Sonner (Toast notifications)
+-   **Utilities**: dotenv

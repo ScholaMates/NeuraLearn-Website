@@ -1,9 +1,9 @@
 import { createBrowserClient } from '@supabase/ssr'
-import config from '../../../config.json'
+
 
 export function createClient() {
     return createBrowserClient(
-        config.supabaseUrl,
-        config.supabaseAnonKey,
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     )
 }
