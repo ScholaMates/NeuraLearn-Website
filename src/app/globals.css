@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 :root {
+  /* Default (Mocha) */
   --cat-base: #1e1e2e;
   --cat-mantle: #181825;
   --cat-crust: #11111b;
@@ -30,6 +31,122 @@
 
   --background: var(--cat-base);
   --foreground: var(--cat-text);
+}
+
+.latte {
+  --cat-base: #eff1f5;
+  --cat-mantle: #e6e9ef;
+  --cat-crust: #dce0e8;
+  --cat-text: #4c4f69;
+  --cat-subtext0: #6c6f85;
+  --cat-subtext1: #5c5f77;
+  --cat-surface0: #ccd0da;
+  --cat-surface1: #bcc0cc;
+  --cat-surface2: #acb0be;
+  --cat-overlay0: #9ca0b0;
+  --cat-overlay1: #8c8fa1;
+  --cat-overlay2: #7c7f93;
+  --cat-blue: #1e66f5;
+  --cat-lavender: #7287fd;
+  --cat-sapphire: #209fb5;
+  --cat-sky: #04a5e5;
+  --cat-teal: #179299;
+  --cat-green: #40a02b;
+  --cat-yellow: #df8e1d;
+  --cat-peach: #fe640b;
+  --cat-maroon: #e64553;
+  --cat-red: #d20f39;
+  --cat-mauve: #8839ef;
+  --cat-pink: #ea76cb;
+  --cat-flamingo: #dd7878;
+  --cat-rosewater: #dc8a78;
+}
+
+.frappe {
+  --cat-base: #303446;
+  --cat-mantle: #292c3c;
+  --cat-crust: #232634;
+  --cat-text: #c6d0f5;
+  --cat-subtext0: #a5adce;
+  --cat-subtext1: #b5bfe2;
+  --cat-surface0: #414559;
+  --cat-surface1: #51576d;
+  --cat-surface2: #626880;
+  --cat-overlay0: #737994;
+  --cat-overlay1: #838ba7;
+  --cat-overlay2: #949cbb;
+  --cat-blue: #8caaee;
+  --cat-lavender: #babbf1;
+  --cat-sapphire: #85c1dc;
+  --cat-sky: #99d1db;
+  --cat-teal: #81c8be;
+  --cat-green: #a6d189;
+  --cat-yellow: #e5c890;
+  --cat-peach: #ef9f76;
+  --cat-maroon: #ea999c;
+  --cat-red: #e78284;
+  --cat-mauve: #ca9ee6;
+  --cat-pink: #f4b8e4;
+  --cat-flamingo: #eebebe;
+  --cat-rosewater: #f2d5cf;
+}
+
+.macchiato {
+  --cat-base: #24273a;
+  --cat-mantle: #1e2030;
+  --cat-crust: #181926;
+  --cat-text: #cad3f5;
+  --cat-subtext0: #a5adcb;
+  --cat-subtext1: #b8c0e0;
+  --cat-surface0: #363a4f;
+  --cat-surface1: #494d64;
+  --cat-surface2: #5b6078;
+  --cat-overlay0: #6ed7a2;
+  --cat-overlay1: #8087a2;
+  --cat-overlay2: #939ab7;
+  --cat-blue: #8aadf4;
+  --cat-lavender: #b7bdf8;
+  --cat-sapphire: #7dc4e4;
+  --cat-sky: #91d7e3;
+  --cat-teal: #8bd5ca;
+  --cat-green: #a6da95;
+  --cat-yellow: #eed49f;
+  --cat-peach: #f5a97f;
+  --cat-maroon: #ee99a0;
+  --cat-red: #ed8796;
+  --cat-mauve: #c6a0f6;
+  --cat-pink: #f5bde6;
+  --cat-flamingo: #f0c6c6;
+  --cat-rosewater: #f4dbd6;
+}
+
+.mocha {
+  --cat-base: #1e1e2e;
+  --cat-mantle: #181825;
+  --cat-crust: #11111b;
+  --cat-text: #cdd6f4;
+  --cat-subtext0: #a6adc8;
+  --cat-subtext1: #bac2de;
+  --cat-surface0: #313244;
+  --cat-surface1: #45475a;
+  --cat-surface2: #585b70;
+  --cat-overlay0: #6c7086;
+  --cat-overlay1: #7f849c;
+  --cat-overlay2: #9399b2;
+  --cat-blue: #89b4fa;
+  --cat-lavender: #b4befe;
+  --cat-sapphire: #74c7ec;
+  --cat-sky: #89dceb;
+  --cat-teal: #94e2d5;
+  --cat-green: #a6e3a1;
+  --cat-yellow: #f9e2af;
+  --cat-peach: #fab387;
+  --cat-maroon: #eba0ac;
+  --cat-red: #f38ba8;
+  --cat-mauve: #cba6f7;
+  --cat-pink: #f5c2e7;
+  --cat-flamingo: #f2cdcd;
+  --cat-rosewater: #f5e0dc;
 }
 
 @theme inline {

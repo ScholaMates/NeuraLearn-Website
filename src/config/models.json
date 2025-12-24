@@ -1,0 +1,27 @@
+[
+  {
+    "id": "gemini-3-flash-preview",
+    "label": "Gemini 3.0 Flash Preview",
+    "description": "Latest preview of the next-generation high-speed model."
+  },
+  {
+    "id": "gemini-2.5-pro",
+    "label": "Gemini 2.5 Pro",
+    "description": "Advanced reasoning and capability for complex tasks."
+  },
+  {
+    "id": "gemini-2.5-flash",
+    "label": "Gemini 2.5 Flash",
+    "description": "Optimized for speed and efficiency at scale."
+  },
+  {
+    "id": "gemini-2.5-flash-preview-09-2025",
+    "label": "Gemini 2.5 Flash Preview (09/2025)",
+    "description": "Experimental snapshot of the 2.5 Flash model."
+  },
+  {
+    "id": "gemini-2.5-flash-lite",
+    "label": "Gemini 2.5 Flash Lite",
+    "description": "Lightweight version for lower latency requirements."
+  }
+]

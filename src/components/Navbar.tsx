@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useEffect, useState } from 'react';
 import { User as UserIcon, Menu, X } from 'lucide-react';
+import ThemePicker from './ThemePicker';
 
 export default function Navbar() {
     const pathname = usePathname();
@@ -43,12 +44,15 @@ export default function Navbar() {
                 </Link>
 
                 {/* Mobile Menu Button */}
-                <button
-                    onClick={toggleMenu}
-                    className="md:hidden p-2 text-mocha-subtext0 hover:text-mocha-text hover:bg-mocha-surface1 rounded-md transition-colors"
-                >
-                    {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
-                </button>
+                <div className="flex items-center gap-2 md:hidden">
+                    <ThemePicker />
+                    <button
+                        onClick={toggleMenu}
+                        className="p-2 text-mocha-subtext0 hover:text-mocha-text hover:bg-mocha-surface1 rounded-md transition-colors"
+                    >
+                        {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                    </button>
+                </div>
 
                 {/* Desktop Navigation */}
                 <div className="hidden md:flex items-center gap-6">
@@ -82,6 +86,11 @@ export default function Navbar() {
                             Chat
                         </Link>
                     )}
+                    
+                    <div className="h-6 w-px bg-mocha-surface1" />
+                    
+                    <ThemePicker />
+
                     {user ? (
                         <div className="flex items-center gap-2 text-sm text-mocha-subtext0">
                             <div className="h-8 w-8 rounded-full bg-mocha-surface1 flex items-center justify-center">
