@@ -79,13 +79,22 @@ export default function Navbar() {
                         Contact
                     </Link>
                     {user && (
-                        <Link
-                            href="/chat"
-                            className={`text-sm font-medium transition-colors hover:text-mocha-mauve ${pathname === '/chat' ? 'text-mocha-mauve' : 'text-mocha-subtext0'
-                                }`}
-                        >
-                            Chat
-                        </Link>
+                        <>
+                            <Link
+                                href="/chat"
+                                className={`text-sm font-medium transition-colors hover:text-mocha-mauve ${pathname === '/chat' ? 'text-mocha-mauve' : 'text-mocha-subtext0'
+                                    }`}
+                            >
+                                Chat
+                            </Link>
+                            <Link
+                                href="/pomodoro"
+                                className={`text-sm font-medium transition-colors hover:text-mocha-mauve ${pathname === '/pomodoro' ? 'text-mocha-mauve' : 'text-mocha-subtext0'
+                                    }`}
+                            >
+                                Pomodoro
+                            </Link>
+                        </>
                     )}
                     
                     <div className="h-6 w-px bg-mocha-surface1" />
@@ -161,14 +170,24 @@ export default function Navbar() {
                                 Contact
                             </Link>
                             {user && (
-                                <Link
-                                    href="/chat"
-                                    onClick={() => setIsMenuOpen(false)}
-                                    className={`block w-full rounded-md px-3 py-2 text-base font-medium hover:bg-mocha-surface1 ${pathname === '/chat' ? 'text-mocha-mauve bg-mocha-surface0' : 'text-mocha-subtext0'
-                                        }`}
-                                >
-                                    Chat
-                                </Link>
+                                <>
+                                    <Link
+                                        href="/chat"
+                                        onClick={() => setIsMenuOpen(false)}
+                                        className={`block w-full rounded-md px-3 py-2 text-base font-medium hover:bg-mocha-surface1 ${pathname === '/chat' ? 'text-mocha-mauve bg-mocha-surface0' : 'text-mocha-subtext0'
+                                            }`}
+                                    >
+                                        Chat
+                                    </Link>
+                                    <Link
+                                        href="/pomodoro"
+                                        onClick={() => setIsMenuOpen(false)}
+                                        className={`block w-full rounded-md px-3 py-2 text-base font-medium hover:bg-mocha-surface1 ${pathname === '/pomodoro' ? 'text-mocha-mauve bg-mocha-surface0' : 'text-mocha-subtext0'
+                                            }`}
+                                    >
+                                        Pomodoro
+                                    </Link>
+                                </>
                             )}
                             {user ? (
                                 <div className="mt-4 space-y-2 border-t border-mocha-surface1 pt-4">
