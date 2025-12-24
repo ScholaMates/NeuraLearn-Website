@@ -5,6 +5,8 @@ import { usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useEffect, useState } from 'react';
 import { User as UserIcon, Menu, X } from 'lucide-react';
+import ThemePicker from './ThemePicker';
+import { toast } from 'sonner';
 
 export default function Navbar() {
     const pathname = usePathname();
@@ -43,12 +45,15 @@ export default function Navbar() {
                 </Link>
 
                 {/* Mobile Menu Button */}
-                <button
-                    onClick={toggleMenu}
-                    className="md:hidden p-2 text-mocha-subtext0 hover:text-mocha-text hover:bg-mocha-surface1 rounded-md transition-colors"
-                >
-                    {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
-                </button>
+                <div className="flex items-center gap-2 md:hidden">
+                    <ThemePicker />
+                    <button
+                        onClick={toggleMenu}
+                        className="p-2 text-mocha-subtext0 hover:text-mocha-text hover:bg-mocha-surface1 rounded-md transition-colors"
+                    >
+                        {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                    </button>
+                </div>
 
                 {/* Desktop Navigation */}
                 <div className="hidden md:flex items-center gap-6">
@@ -91,12 +96,30 @@ export default function Navbar() {
                             </Link>
                         </>
                     )}
+                    
+                    <div className="h-6 w-px bg-mocha-surface1" />
+                    
+                    <ThemePicker />
+
                     {user ? (
-                        <div className="flex items-center gap-2 text-sm text-mocha-subtext0">
-                            <div className="h-8 w-8 rounded-full bg-mocha-surface1 flex items-center justify-center">
-                                <UserIcon size={16} />
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2 text-sm text-mocha-subtext0">
+                                <div className="h-8 w-8 rounded-full bg-mocha-surface1 flex items-center justify-center">
+                                    <UserIcon size={16} />
+                                </div>
+                                <span className="hidden lg:inline">{user.user_metadata?.username || user.email}</span>
                             </div>
-                            <span className="hidden lg:inline">{user.user_metadata?.username || user.email}</span>
+                            <button
+                                onClick={async () => {
+                                    await supabase.auth.signOut();
+                                    toast.success("Signed out successfully");
+                                    setUser(null);
+                                    setIsMenuOpen(false);
+                                }}
+                                className="text-sm font-medium text-mocha-subtext0 hover:text-mocha-text transition-colors"
+                            >
+                                Sign Out
+                            </button>
                         </div>
                     ) : (
                         <div className="flex items-center gap-4">
@@ -168,9 +191,22 @@ export default function Navbar() {
                             )}
                             {user ? (
                                 <div className="mt-4 space-y-2 border-t border-mocha-surface1 pt-4">
-                                    <div className="flex items-center gap-2 px-3 text-sm text-mocha-subtext0">
-                                        <UserIcon size={16} />
-                                        <span>{user.user_metadata?.username || user.email}</span>
+                                    <div className="flex items-center justify-between px-3 text-sm text-mocha-subtext0">
+                                        <div className="flex items-center gap-2">
+                                            <UserIcon size={16} />
+                                            <span>{user.user_metadata?.username || user.email}</span>
+                                        </div>
+                                        <button
+                                            onClick={async () => {
+                                                await supabase.auth.signOut();
+                                                toast.success("Signed out successfully");
+                                                setUser(null);
+                                                setIsMenuOpen(false);
+                                            }}
+                                            className="font-medium hover:text-mocha-text"
+                                        >
+                                            Sign Out
+                                        </button>
                                     </div>
                                 </div>
                             ) : (

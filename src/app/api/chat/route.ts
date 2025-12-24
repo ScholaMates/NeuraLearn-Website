@@ -6,7 +6,6 @@ import responseLengths from '@/config/responseLengths.json';
 import academicLevels from '@/config/academicLevels.json';
 
 const API = process.env.GEMINI_API_KEY!;
-const genAI = new GoogleGenerativeAI(API);
 
 export async function POST(request: Request) {
     let chatId: string | undefined;
@@ -26,6 +25,18 @@ export async function POST(request: Request) {
         if (!user) {
             return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
         }
+
+        // Fetch user profile for personalization EARLY to use custom keys/models
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('nickname, tutor_mode, response_length, academic_level, major, about_me, custom_model, gemini_api_key')
+            .eq('id', user.id)
+            .single();
+
+        const apiKey = profile?.gemini_api_key || process.env.GEMINI_API_KEY!;
+        const modelName = profile?.custom_model || process.env.GEMINI_AI_MODEL!;
+        
+        const genAI = new GoogleGenerativeAI(apiKey);
 
         // Fetch history if this is an existing chat
         let historyForGemini: { role: string; parts: { text: string }[] }[] = [];
@@ -50,7 +61,7 @@ export async function POST(request: Request) {
 
             try {
                 // Generate a short title using Gemini 
-                const titleModel = genAI.getGenerativeModel({ model: process.env.GEMINI_AI_MODEL! });
+                const titleModel = genAI.getGenerativeModel({ model: modelName });
                 const titleResult = await titleModel.generateContent(`Generate a short, descriptive, and engaging title (max 6 words) for a conversation starting with this message. It should capture the essence of the user's intent. Do not use quotes: ${message}`);
                 const titleResponse = await titleResult.response;
                 title = titleResponse.text().trim();
@@ -87,13 +98,6 @@ export async function POST(request: Request) {
             console.error('Error saving user message:', userMsgError);
         }
 
-        // Fetch user profile for personalization
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('nickname, tutor_mode, response_length, academic_level, major, about_me')
-            .eq('id', user.id)
-            .single();
-
         let systemInstruction = "You are a helpful AI assistant. Use LaTeX for mathematical expressions. Wrap inline math in single dollar signs ($) and block math in double dollar signs ($$).";
 
         if (profile) {
@@ -123,7 +127,7 @@ export async function POST(request: Request) {
         }
 
         const model = genAI.getGenerativeModel({
-            model: process.env.GEMINI_AI_MODEL!,
+            model: modelName,
             systemInstruction: systemInstruction
         });
 

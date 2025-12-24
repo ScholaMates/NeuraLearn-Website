@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Play, Pause, SkipForward, RotateCcw, Settings, Volume2, VolumeX } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface TimerSettings {
     focusDuration: number;
@@ -98,6 +99,9 @@ export default function PomodoroTimer({ onSessionComplete, settings }: PomodoroT
         if (timerRef.current) clearInterval(timerRef.current);
 
         playNotificationSound();
+        
+        const message = mode === 'focus' ? "Great job! Focus session complete." : "Break is over! Time to focus.";
+        toast.success(message);
 
         if (mode === 'focus') {
             onSessionComplete(settings.focusDuration);
@@ -115,18 +119,32 @@ export default function PomodoroTimer({ onSessionComplete, settings }: PomodoroT
         return `${m < 10 ? '0' + m : m}:${s < 10 ? '0' + s : s}`;
     };
 
-    const toggleTimer = () => setIsActive(!isActive);
+    const toggleTimer = () => {
+        const newActiveState = !isActive;
+        setIsActive(newActiveState);
+        if (newActiveState) {
+            toast.info("Timer started");
+        } else {
+            toast.info("Timer paused");
+        }
+    };
     
     const resetTimer = () => {
         setIsActive(false);
         setTimeLeft(getModeDuration());
+        toast.info("Timer reset");
     };
 
     const skipTimer = () => {
          setIsActive(false);
          // Logic to skip to next mode...
-          if (mode === 'focus') setMode('shortBreak');
-          else setMode('focus');
+          if (mode === 'focus') {
+              setMode('shortBreak');
+              toast.info("Focus session skipped");
+          } else {
+              setMode('focus');
+              toast.info("Break skipped");
+          }
     };
 
     const progress = 100 - (timeLeft / getModeDuration()) * 100;
@@ -143,7 +161,10 @@ export default function PomodoroTimer({ onSessionComplete, settings }: PomodoroT
                 {(['focus', 'shortBreak', 'longBreak'] as Mode[]).map((m) => (
                     <button
                         key={m}
-                        onClick={() => setMode(m)}
+                        onClick={() => {
+                            setMode(m);
+                            toast.success(`Switched to ${m === 'focus' ? 'Focus' : m === 'shortBreak' ? 'Short Break' : 'Long Break'} mode`);
+                        }}
                         className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
                             mode === m 
                                 ? `bg-${m === 'focus' ? 'mocha-mauve' : m === 'shortBreak' ? 'mocha-green' : 'mocha-teal'} text-mocha-base` 

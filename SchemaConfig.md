@@ -23,6 +23,8 @@ create table public.profiles (
   occupation text,
   about_me text,
   avatar_url text,
+  custom_model text,
+  gemini_api_key text,
   updated_at timestamp with time zone,
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
