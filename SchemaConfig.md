@@ -74,6 +74,15 @@ create policy "Users can insert messages in own chats" on messages for insert wi
   exists ( select 1 from chats where chats.id = messages.chat_id and chats.user_id = auth.uid() )
 );
 
+-- Remove occupation column
+alter table public.profiles drop column if exists occupation;
+
+-- Add new personalization columns
+alter table public.profiles add column if not exists tutor_mode text default 'socratic';
+alter table public.profiles add column if not exists response_length text default 'concise';
+alter table public.profiles add column if not exists academic_level text default 'undergraduate';
+alter table public.profiles add column if not exists major text;
+
 -- Device ID 
 insert into device_ids (code) values 
   ('DEVICE-0'), -- Examples
@@ -81,4 +90,3 @@ insert into device_ids (code) values
   ('DEVICE-2')
 on conflict (code) do nothing;
 ```
-
