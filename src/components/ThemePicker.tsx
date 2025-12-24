@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Palette, ChevronDown, Check } from 'lucide-react';
+import { toast } from 'sonner';
 
 type Theme = 'latte' | 'frappe' | 'macchiato' | 'mocha';
 
@@ -33,6 +34,8 @@ export default function ThemePicker() {
         localStorage.setItem('theme', theme);
         setCurrentTheme(theme);
         setIsOpen(false);
+        const label = themes.find(t => t.id === theme)?.label;
+        toast.success(`Theme changed to ${label}`);
     };
 
     return (
