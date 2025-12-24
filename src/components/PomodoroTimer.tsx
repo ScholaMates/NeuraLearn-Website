@@ -22,13 +22,7 @@ export default function PomodoroTimer({ onSessionComplete, settings }: PomodoroT
     const [mode, setMode] = useState<Mode>('focus');
     const [timeLeft, setTimeLeft] = useState(settings.focusDuration * 60);
     const [isActive, setIsActive] = useState(false);
-    const [mode, setMode] = useState<Mode>('focus');
-    const [timeLeft, setTimeLeft] = useState(settings.focusDuration * 60);
-    const [isActive, setIsActive] = useState(false);
-    const [isMuted, setIsMuted] = useState(false);
-    const [volume, setVolume] = useState(0.5); // 0.0 to 1.0
 
-    const timerRef = useRef<NodeJS.Timeout | null>(null);
     const timerRef = useRef<NodeJS.Timeout | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
 
@@ -43,7 +37,7 @@ export default function PomodoroTimer({ onSessionComplete, settings }: PomodoroT
     }, []);
 
     const playNotificationSound = () => {
-        if (isMuted || !audioContextRef.current) return;
+        if (!audioContextRef.current) return;
 
         const ctx = audioContextRef.current;
         const oscillator = ctx.createOscillator();
@@ -56,7 +50,7 @@ export default function PomodoroTimer({ onSessionComplete, settings }: PomodoroT
         oscillator.frequency.setValueAtTime(880, ctx.currentTime); // A5
         oscillator.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.1); // Drop to A4
 
-        gainNode.gain.setValueAtTime(volume, ctx.currentTime);
+        gainNode.gain.setValueAtTime(0.5, ctx.currentTime);
         gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
 
         oscillator.start(ctx.currentTime);
@@ -205,35 +199,6 @@ export default function PomodoroTimer({ onSessionComplete, settings }: PomodoroT
 
             {/* Controls */}
             <div className="flex items-center gap-6">
-                 <div className="flex items-center gap-2 group relative">
-                    <button
-                        onClick={() => setIsMuted(!isMuted)}
-                        className="p-3 rounded-full text-mocha-subtext0 hover:bg-mocha-surface0 hover:text-mocha-text transition-all"
-                        aria-label={isMuted ? "Enable sound" : "Mute sound"}
-                    >
-                        {isMuted || volume === 0 ? <VolumeX size={24} /> : <Volume2 size={24} />}
-                    </button>
-                    
-                    {/* Volume Slider - Visible on group hover */}
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-3 bg-mocha-surface0 rounded-xl border border-mocha-surface1 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto">
-                        <div className="h-32 flex flex-col items-center justify-center">
-                            <input
-                                type="range"
-                                min="0"
-                                max="1"
-                                step="0.01"
-                                value={volume}
-                                onChange={(e) => {
-                                    setVolume(parseFloat(e.target.value));
-                                    if (parseFloat(e.target.value) > 0) setIsMuted(false);
-                                }}
-                                className="h-24 -rotate-90 origin-center bg-mocha-surface1 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-mocha-mauve"
-                                aria-label="Volume control"
-                            />
-                        </div>
-                    </div>
-                </div>
-
                 <button
                     onClick={toggleTimer}
                     className="p-6 rounded-full bg-mocha-surface0 text-mocha-text hover:bg-mocha-surface1 hover:scale-110 transition-all shadow-lg border border-mocha-surface1"
