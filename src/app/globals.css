@@ -33,7 +33,7 @@
   --foreground: var(--cat-text);
 }
 
-.latte {
+:root.latte {
   --cat-base: #eff1f5;
   --cat-mantle: #e6e9ef;
   --cat-crust: #dce0e8;
@@ -60,9 +60,12 @@
   --cat-pink: #ea76cb;
   --cat-flamingo: #dd7878;
   --cat-rosewater: #dc8a78;
+
+  --background: var(--cat-base);
+  --foreground: var(--cat-text);
 }
 
-.frappe {
+:root.frappe {
   --cat-base: #303446;
   --cat-mantle: #292c3c;
   --cat-crust: #232634;
@@ -89,9 +92,12 @@
   --cat-pink: #f4b8e4;
   --cat-flamingo: #eebebe;
   --cat-rosewater: #f2d5cf;
+
+  --background: var(--cat-base);
+  --foreground: var(--cat-text);
 }
 
-.macchiato {
+:root.macchiato {
   --cat-base: #24273a;
   --cat-mantle: #1e2030;
   --cat-crust: #181926;
@@ -118,9 +124,12 @@
   --cat-pink: #f5bde6;
   --cat-flamingo: #f0c6c6;
   --cat-rosewater: #f4dbd6;
+
+  --background: var(--cat-base);
+  --foreground: var(--cat-text);
 }
 
-.mocha {
+:root.mocha {
   --cat-base: #1e1e2e;
   --cat-mantle: #181825;
   --cat-crust: #11111b;
@@ -147,6 +156,9 @@
   --cat-pink: #f5c2e7;
   --cat-flamingo: #f2cdcd;
   --cat-rosewater: #f5e0dc;
+
+  --background: var(--cat-base);
+  --foreground: var(--cat-text);
 }
 
 @theme inline {

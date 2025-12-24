@@ -26,6 +26,7 @@ export const metadata: Metadata = {
 import { Toaster } from 'sonner';
 
 import ProfileGuard from "@/components/ProfileGuard";
+import ThemeInit from "@/components/ThemeInit";
 
 export default function RootLayout({
   children,
@@ -37,6 +38,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${spaceGrotesk.variable} antialiased`}
       >
+        <ThemeInit />
         <Toaster position="top-center" richColors duration={2000} closeButton />
         <ProfileGuard />
         <Navbar />

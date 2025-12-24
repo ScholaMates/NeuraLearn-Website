@@ -18,13 +18,10 @@ export default function ThemePicker() {
     const [currentTheme, setCurrentTheme] = useState<Theme>('mocha');
 
     useEffect(() => {
-        // Load theme from local storage or system preference
+        // Sync local state with current stored theme on mount
         const savedTheme = localStorage.getItem('theme') as Theme;
         if (savedTheme && themes.some(t => t.id === savedTheme)) {
-            setTheme(savedTheme);
-        } else {
-            // Default to Mocha
-            setTheme('mocha');
+            setCurrentTheme(savedTheme);
         }
     }, []);
 
