@@ -91,4 +91,21 @@ insert into device_ids (code) values
   ('DEVICE-1'), 
   ('DEVICE-2')
 on conflict (code) do nothing;
-```
+
+-- 5. Study Sessions Table
+create table public.study_sessions (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users on delete cascade not null,
+  start_time timestamp with time zone default timezone('utc'::text, now()),
+  end_time timestamp with time zone,
+  status text check (status in ('focused', 'completed', 'interrupted')),
+  created_at timestamp with time zone default timezone('utc'::text, now())
+);
+
+-- Enable RLS on study_sessions
+alter table public.study_sessions enable row level security;
+
+-- Policies for study_sessions
+create policy "Users can view own study sessions" on study_sessions for select using (auth.uid() = user_id);
+create policy "Users can insert own study sessions" on study_sessions for insert with check (auth.uid() = user_id);
+create policy "Users can update own study sessions" on study_sessions for update using (auth.uid() = user_id);
