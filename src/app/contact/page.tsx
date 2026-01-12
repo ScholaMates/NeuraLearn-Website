@@ -41,22 +41,6 @@ export default function Contact() {
 
     const contacts = [
         {
-            icon: <Phone className="h-8 w-8 text-mocha-blue" />,
-            title: "Phone",
-            value: "+1 (555) 123-4567",
-            action: "Call Now",
-            link: "tel:+15551234567",
-            color: "group-hover:text-mocha-blue"
-        },
-        {
-            icon: <MessageCircle className="h-8 w-8 text-mocha-green" />,
-            title: "WhatsApp",
-            value: "+1 (555) 987-6543",
-            action: "Chat Now",
-            link: "https://wa.me/15559876543",
-            color: "group-hover:text-mocha-green"
-        },
-        {
             icon: <MapPin className="h-8 w-8 text-mocha-red" />,
             title: "Address",
             value: "South PrimeOne School, Harjosari II, Kec. Medan Amplas, Kota Medan, Sumatera Utara",
