@@ -79,17 +79,17 @@ export default function About() {
         },
         {
             name: "Abram Surya Matthew Sinaga",
-            role: "AI Specialist",
+            role: "3D Designer",
             image: "/team/IMG_1513.JPG",
             bio: "Developing the intelligent core of NeuraLearn.",
-            specialty: "Deep Learning & NLP"
+            specialty: "Drawing & Modelling"
         },
         {
             name: "Hewitt Hartanoto",
-            role: "AI Specialist",
+            role: "Lead Web Dev",
             image: "/team/IMG_1512.JPG",
             bio: "Developing the intelligent core of NeuraLearn.",
-            specialty: "Deep Learning & NLP"
+            specialty: "NextJS & React"
         },
         {
             name: "Jaylene Ponassis",
@@ -177,3 +177,4 @@ export default function About() {
         </div>
     );
 }
+
