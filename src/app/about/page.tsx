@@ -66,42 +66,42 @@ export default function About() {
         {
             name: "Clarissa Lawrence Pearl",
             role: "Lead Engineer",
-            image: "/team/IMG_1508.jpg",
+            image: "/team/IMG_1508.JPG",
             bio: "Full-stack wizard ensuring our systems are robust and scalable.",
             specialty: "Scalable Architecture & IoT"
         },
         {
             name:"Chelsea Chen",
             role: "Product Designer",
-            image: "/team/IMG_1509.jpg",
+            image: "/team/IMG_1509.JPG",
             bio: "Crafting beautiful and intuitive user experiences.",
             specialty: "UI/UX & Accessibility"
         },
         {
             name: "Abram Surya Matthew Sinaga",
             role: "AI Specialist",
-            image: "/team/IMG_1513.jpg",
+            image: "/team/IMG_1513.JPG",
             bio: "Developing the intelligent core of NeuraLearn.",
             specialty: "Deep Learning & NLP"
         },
         {
             name: "Hewitt Hartanoto",
             role: "AI Specialist",
-            image: "/team/IMG_1512.jpg",
+            image: "/team/IMG_1512.JPG",
             bio: "Developing the intelligent core of NeuraLearn.",
             specialty: "Deep Learning & NLP"
         },
         {
             name: "Jaylene Ponassis",
             role: "AI Specialist",
-            image: "/team/IMG_1507.jpg",
+            image: "/team/IMG_1507.JPG",
             bio: "Developing the intelligent core of NeuraLearn.",
             specialty: "Deep Learning & NLP"
         },
         {
             name: "Arthur Stanlinov Sinaga",
             role: "AI Specialist",
-            image: "/team/IMG_1510.jpg",
+            image: "/team/IMG_1510.JPG",
             bio: "Developing the intelligent core of NeuraLearn.",
             specialty: "Deep Learning & NLP"
         }
