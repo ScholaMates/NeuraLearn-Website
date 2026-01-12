@@ -57,51 +57,51 @@ export default function About() {
 
     const team = [
         {
-            name: "Baby",
+            name: "Fabio Canavarro",
             role: "Founder & CEO",
-            image: "/team/person_a.jpg",
+            image: "/team/fabio.jpg",
             bio: "Visionary leader with a passion for educational technology.",
             specialty: "Strategy & EdTech Innovation"
         },
         {
-            name: "Person B",
+            name: "Clarissa Lawrence Pearl",
             role: "Lead Engineer",
-            image: "",
+            image: "/team/IMG_1508.jpg",
             bio: "Full-stack wizard ensuring our systems are robust and scalable.",
             specialty: "Scalable Architecture & IoT"
         },
         {
-            name: "Person C",
+            name:"Chelsea Chen",
             role: "Product Designer",
-            image: "",
+            image: "/team/IMG_1509.jpg",
             bio: "Crafting beautiful and intuitive user experiences.",
             specialty: "UI/UX & Accessibility"
         },
         {
-            name: "Person D",
+            name: "Abram Surya Matthew Sinaga",
             role: "AI Specialist",
-            image: "",
+            image: "/team/IMG_1513.jpg",
             bio: "Developing the intelligent core of NeuraLearn.",
             specialty: "Deep Learning & NLP"
         },
         {
-            name: "Person E",
+            name: "Hewitt Hartanoto",
             role: "AI Specialist",
-            image: "",
+            image: "/team/IMG_1512.jpg",
             bio: "Developing the intelligent core of NeuraLearn.",
             specialty: "Deep Learning & NLP"
         },
         {
-            name: "Person F",
+            name: "Jaylene Ponassis",
             role: "AI Specialist",
-            image: "",
+            image: "/team/IMG_1507.jpg",
             bio: "Developing the intelligent core of NeuraLearn.",
             specialty: "Deep Learning & NLP"
         },
         {
-            name: "Person G",
+            name: "Arthur Stanlinov Sinaga",
             role: "AI Specialist",
-            image: "",
+            image: "/team/IMG_1510.jpg",
             bio: "Developing the intelligent core of NeuraLearn.",
             specialty: "Deep Learning & NLP"
         }
