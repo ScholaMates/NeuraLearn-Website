@@ -12,7 +12,7 @@ export async function POST(request: Request) {
 
     try {
         const body = await request.json();
-        const { message, chatId: providedChatId } = body;
+        const { message, chatId: providedChatId, skipUserSave } = body;
         chatId = providedChatId;
 
         if (!message) {
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
 
         const apiKey = profile?.gemini_api_key || process.env.GEMINI_API_KEY!;
         const modelName = profile?.custom_model || process.env.GEMINI_AI_MODEL!;
-        
+
         const genAI = new GoogleGenerativeAI(apiKey);
 
         // Fetch history if this is an existing chat
@@ -48,7 +48,17 @@ export async function POST(request: Request) {
                 .order('created_at', { ascending: true });
 
             if (previousMessages) {
-                historyForGemini = previousMessages.map(msg => ({
+                let msgs = previousMessages;
+                // If we are skipping user save, it means the message is already in DB (as the last message).
+                // We need to remove it from history so we don't duplicate it in the prompt context.
+                if (skipUserSave && msgs.length > 0) {
+                    const lastMsg = msgs[msgs.length - 1];
+                    if (lastMsg.role === 'user' && lastMsg.content === message) {
+                        msgs = msgs.slice(0, -1);
+                    }
+                }
+
+                historyForGemini = msgs.map(msg => ({
                     role: msg.role,
                     parts: [{ text: msg.content }],
                 }));
@@ -85,17 +95,24 @@ export async function POST(request: Request) {
             chatId = newChat.id;
         }
 
-        // Save User Message
-        const { error: userMsgError } = await supabase
-            .from('messages')
-            .insert({
-                chat_id: chatId,
-                role: 'user',
-                content: message,
-            });
+        // Save User Message (only if not skipped)
+        let userMsg: any = null;
+        if (!skipUserSave) {
+            const { data, error: userMsgError } = await supabase
+                .from('messages')
+                .insert({
+                    chat_id: chatId,
+                    role: 'user',
+                    content: message,
+                })
+                .select()
+                .single();
 
-        if (userMsgError) {
-            console.error('Error saving user message:', userMsgError);
+            userMsg = data;
+
+            if (userMsgError) {
+                console.error('Error saving user message:', userMsgError);
+            }
         }
 
         let systemInstruction = "You are a helpful AI assistant. Use LaTeX for mathematical expressions. Wrap inline math in single dollar signs ($) and block math in double dollar signs ($$).";
@@ -173,6 +190,9 @@ export async function POST(request: Request) {
         };
         if (chatId) {
             responseHeaders['X-Chat-Id'] = chatId;
+        }
+        if (userMsg?.id) {
+            responseHeaders['X-User-Message-Id'] = userMsg.id;
         }
 
         return new Response(stream, {

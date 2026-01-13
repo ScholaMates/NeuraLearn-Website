@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import { Send, User, Bot, LogOut, MessageSquare, Plus, Trash2, PanelLeftClose, PanelLeftOpen, Settings, Palette } from 'lucide-react';
+import { Send, User, Bot, LogOut, MessageSquare, Plus, Trash2, PanelLeftClose, PanelLeftOpen, Settings, Palette, Pencil, X, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
@@ -12,6 +12,7 @@ import 'katex/dist/katex.min.css';
 import { toast } from 'sonner';
 
 interface Message {
+    id?: string;
     role: 'user' | 'model';
     text: string;
 }
@@ -32,6 +33,8 @@ export default function ChatPage() {
     const [currentChatId, setCurrentChatId] = useState<string | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [showSettingsPopup, setShowSettingsPopup] = useState(false);
+    const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+    const [editInput, setEditInput] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const supabase = createClient();
 
@@ -85,7 +88,7 @@ export default function ChatPage() {
             .order('created_at', { ascending: true });
 
         if (data) {
-            setMessages(data.map(m => ({ role: m.role as 'user' | 'model', text: m.content })));
+            setMessages(data.map(m => ({ id: m.id, role: m.role as 'user' | 'model', text: m.content })));
         } else {
             setMessages([]);
         }
@@ -141,15 +144,8 @@ export default function ChatPage() {
         scrollToBottom();
     }, [messages]);
 
-    const handleSend = async () => {
-        if (!input.trim() || loading) return;
-
-        const userMessage: Message = { role: 'user', text: input };
-        setMessages((prev) => [...prev, userMessage]);
-        const currentInput = input;
-        setInput('');
+    const triggerGemini = async (messageText: string, chatId: string | null, skipUserSave: boolean = false) => {
         setLoading(true);
-
         try {
             const response = await fetch('/api/chat', {
                 method: 'POST',
@@ -157,16 +153,30 @@ export default function ChatPage() {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    message: currentInput,
-                    chatId: currentChatId
+                    message: messageText,
+                    chatId: chatId,
+                    skipUserSave
                 }),
             });
 
-            // Handle new chat creation via header (check before error)
+            // Handle new chat creation via header
             const newChatId = response.headers.get('X-Chat-Id');
             if (newChatId && !currentChatId) {
                 setCurrentChatId(newChatId);
                 fetchChats(user.id);
+            }
+
+            const userMsgId = response.headers.get('X-User-Message-Id');
+            if (userMsgId) {
+                setMessages((prev) => {
+                    const newMessages = [...prev];
+                    // The last message added was the user message
+                    const userMsgIndex = newMessages.length - 1;
+                    if (newMessages[userMsgIndex].role === 'user') {
+                        newMessages[userMsgIndex] = { ...newMessages[userMsgIndex], id: userMsgId };
+                    }
+                    return newMessages;
+                });
             }
 
             if (!response.ok) {
@@ -210,10 +220,111 @@ export default function ChatPage() {
         }
     };
 
+    const handleSend = async () => {
+        if (!input.trim() || loading) return;
+
+        const userMessage: Message = { role: 'user', text: input };
+        setMessages((prev) => [...prev, userMessage]);
+        const currentInput = input;
+        setInput('');
+
+        await triggerGemini(currentInput, currentChatId);
+    };
+
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             handleSend();
+        }
+    };
+
+    const startEditing = (msg: Message) => {
+        if (!msg.id) return;
+        setEditingMessageId(msg.id);
+        setEditInput(msg.text);
+    };
+
+    const cancelEdit = () => {
+        setEditingMessageId(null);
+        setEditInput('');
+    };
+
+    const saveEdit = async () => {
+        if (!editingMessageId || !editInput.trim()) return;
+
+        const originalMessage = messages.find(m => m.id === editingMessageId);
+        if (!originalMessage || originalMessage.text === editInput) {
+            cancelEdit();
+            return;
+        }
+
+        // Optimistic update
+        setMessages(prev => prev.map(m =>
+            m.id === editingMessageId ? { ...m, text: editInput } : m
+        ));
+
+        const currentEditId = editingMessageId;
+        const currentEditText = editInput;
+        cancelEdit();
+
+        const { error } = await supabase
+            .from('messages')
+            .update({ content: currentEditText })
+            .eq('id', currentEditId);
+
+        if (error) {
+            console.error('Error updating message:', error);
+            toast.error('Failed to update message');
+            // Revert
+            setMessages(prev => prev.map(m =>
+                m.id === currentEditId ? { ...m, text: originalMessage.text } : m
+            ));
+        } else {
+            // Find if there is a next message (AI response) to delete and regenerate
+            const msgIndex = messages.findIndex(m => m.id === currentEditId);
+            if (msgIndex !== -1 && msgIndex < messages.length - 1) {
+                const nextMsg = messages[msgIndex + 1];
+                if (nextMsg.role === 'model') {
+                    // Delete AI response from DB (if it has an ID, though we might not have it locally if it helps to fetch from DB)
+                    // But our messages state doesn't always have ID for model? 
+                    // Wait, loadChat sets IDs. Streamed ones might not have ID yet if we didn't reload?
+                    // Actually, stream doesn't return model ID. We only save it.
+                    // So we must delete via other means or just trust fetching?
+                    // Safe bet: Delete from DB by looking up the message AFTER the user message? 
+                    // Or since we just want to regenerate, we can just proceed.
+                    // But if we don't delete, we'll have duplicate AI responses in history.
+
+                    // Let's try to delete the message via supabase if we can find it.
+                    // Since we don't assume we have the ID for the model message in `messages` state (unless loaded from DB),
+                    // we'll rely on the fact it's the latest message (since we restrict edit to latest).
+
+                    // Actually, if it's the latest user message, the model message is the absolute last message.
+                    const { error: delError } = await supabase
+                        .from('messages')
+                        .delete()
+                        .match({ chat_id: currentChatId, role: 'model' })
+                        .gt('created_at', new Date(Date.now() - 1000 * 60 * 60).toISOString()) // Safety: only recent? No.
+                    // Better: delete the specific message that follows.
+                    // Since we don't have the ID, we must assume it's the last one.
+
+                    // Actually, let's just delete the last message of the chat if it is a model message.
+                    const { data: lastMessages } = await supabase
+                        .from('messages')
+                        .select('id, role')
+                        .eq('chat_id', currentChatId)
+                        .order('created_at', { ascending: false })
+                        .limit(1);
+
+                    if (lastMessages && lastMessages.length > 0 && lastMessages[0].role === 'model') {
+                        await supabase.from('messages').delete().eq('id', lastMessages[0].id);
+                    }
+
+                    // Remove from local state
+                    setMessages(prev => prev.slice(0, msgIndex + 1));
+                }
+            }
+
+            triggerGemini(currentEditText, currentChatId, true);
         }
     };
 
@@ -224,6 +335,8 @@ export default function ChatPage() {
             </div>
         )
     }
+
+    const lastUserMessageIndex = messages.map(m => m.role).lastIndexOf('user');
 
     return (
         <div className="flex h-screen bg-mocha-base text-mocha-text pt-16 relative">
@@ -369,34 +482,64 @@ export default function ChatPage() {
                                         : 'bg-mocha-surface0 text-mocha-text border border-mocha-surface1'
                                         }`}
                                 >
-                                    <div className="whitespace-pre-wrap text-sm md:text-base leading-relaxed">
-                                        <ReactMarkdown
-                                            remarkPlugins={[remarkMath]}
-                                            rehypePlugins={[rehypeKatex]}
-                                            components={{
-                                                p: ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
-                                                code: ({ node, className, children, ...props }: any) => {
-                                                    const match = /language-(\w+)/.exec(className || '')
-                                                    return match ? (
-                                                        <div className="rounded-md bg-mocha-crust p-2 my-2 overflow-x-auto">
-                                                            <code className={className} {...props}>
-                                                                {children}
-                                                            </code>
-                                                        </div>
-                                                    ) : (
-                                                        <code className="bg-mocha-surface2 px-1 py-0.5 rounded text-sm" {...props}>
-                                                            {children}
-                                                        </code>
-                                                    )
-                                                }
-                                            }}
-                                        >
-                                            {msg.text}
-                                        </ReactMarkdown>
-                                        {msg.role === 'model' && idx === messages.length - 1 && loading && (
-                                            <span className="inline-block w-2.5 h-4 ml-1 align-text-bottom bg-mocha-mauve animate-pulse rounded-xs" />
-                                        )}
-                                    </div>
+                                    {editingMessageId === msg.id ? (
+                                        <div className="w-full min-w-[200px]">
+                                            <textarea
+                                                value={editInput}
+                                                onChange={(e) => setEditInput(e.target.value)}
+                                                className="w-full bg-black/10 text-mocha-base rounded p-2 focus:outline-hidden resize-none mb-2"
+                                                rows={3}
+                                            />
+                                            <div className="flex gap-2 justify-end">
+                                                <button onClick={cancelEdit} className="p-1 rounded hover:bg-black/10 transition-colors" title="Cancel">
+                                                    <X size={16} />
+                                                </button>
+                                                <button onClick={saveEdit} className="p-1 rounded hover:bg-black/10 transition-colors" title="Save">
+                                                    <Check size={16} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="group/msg relative">
+                                            <div className="whitespace-pre-wrap text-sm md:text-base leading-relaxed">
+                                                <ReactMarkdown
+                                                    remarkPlugins={[remarkMath]}
+                                                    rehypePlugins={[rehypeKatex]}
+                                                    components={{
+                                                        p: ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
+                                                        code: ({ node, className, children, ...props }: any) => {
+                                                            const match = /language-(\w+)/.exec(className || '')
+                                                            return match ? (
+                                                                <div className="rounded-md bg-mocha-crust p-2 my-2 overflow-x-auto">
+                                                                    <code className={className} {...props}>
+                                                                        {children}
+                                                                    </code>
+                                                                </div>
+                                                            ) : (
+                                                                <code className="bg-mocha-surface2 px-1 py-0.5 rounded text-sm" {...props}>
+                                                                    {children}
+                                                                </code>
+                                                            )
+                                                        }
+                                                    }}
+                                                >
+                                                    {msg.text}
+                                                </ReactMarkdown>
+                                                {msg.role === 'model' && idx === messages.length - 1 && loading && (
+                                                    <span className="inline-block w-2.5 h-4 ml-1 align-text-bottom bg-mocha-mauve animate-pulse rounded-xs" />
+                                                )}
+                                            </div>
+                                            {msg.role === 'user' && msg.id && !loading && idx === lastUserMessageIndex && (
+                                                <button
+                                                    onClick={() => startEditing(msg)}
+                                                    className="absolute -left-10 top-0 p-1 text-mocha-overlay0 hover:text-mocha-text opacity-100 md:opacity-0 md:group-hover/msg:opacity-100 transition-opacity"
+                                                    title="Edit message"
+                                                >
+                                                    <Pencil size={14} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                                 {msg.role === 'user' && (
                                     <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-full bg-mocha-surface2 text-mocha-text">

@@ -58,10 +58,10 @@ export default function About() {
     const team = [
         {
             name: "Fabio Canavarro",
-            role: "Technical Lead (CTO)",
+            role: "Founder & CEO",
             image: "/team/fabio.jpg",
-            bio: "Orchestrated the technical development lifecycle from silicon to software. Manages the version control and development workflows while implementing the low-level drivers, cloud integration, and system logic that brings the NeuraLearn prototype to life.",
-            specialty: "Embedded Systems, Firmware Architecture, Backend Logic"
+            bio: "Visionary leader with a passion for educational technology.",
+            specialty: "Strategy & EdTech Innovation"
         },
         {
             name: "Clarissa Lawrence Pearl",
@@ -79,17 +79,17 @@ export default function About() {
         },
         {
             name: "Abram Surya Matthew Sinaga",
-            role: "Lead 3D Designer",
+            role: "AI Specialist",
             image: "/team/IMG_1513.JPG",
             bio: "Developing the intelligent core of NeuraLearn.",
-            specialty: "Drawing & Modelling"
+            specialty: "Deep Learning & NLP"
         },
         {
             name: "Hewitt Hartanoto",
-            role: "Lead Web Dev",
+            role: "AI Specialist",
             image: "/team/IMG_1512.JPG",
             bio: "Developing the intelligent core of NeuraLearn.",
-            specialty: "NextJS & React"
+            specialty: "Deep Learning & NLP"
         },
         {
             name: "Jaylene Ponassis",
@@ -177,5 +177,3 @@ export default function About() {
         </div>
     );
 }
-
-
