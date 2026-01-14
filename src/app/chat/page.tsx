@@ -568,7 +568,7 @@ export default function ChatPage() {
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
                                 onKeyDown={handleKeyDown}
-                                placeholder="Message Gemini..."
+                                placeholder="Message NeuraLearn..."
                                 className="max-h-48 min-h-[52px] w-full resize-none bg-transparent py-3 pl-4 pr-12 text-mocha-text placeholder:text-mocha-overlay0 focus:outline-hidden sm:text-sm sm:leading-6"
                                 rows={1}
                                 style={{ height: 'auto', overflow: 'hidden' }}
@@ -587,3 +587,4 @@ export default function ChatPage() {
         </div>
     );
 }
+
