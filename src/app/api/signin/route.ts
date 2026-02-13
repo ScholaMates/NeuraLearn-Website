@@ -25,7 +25,7 @@ export async function POST(request: Request) {
         if (error) {
             console.error('Error submitting feedback:', error);
             return NextResponse.json(
-                { error: 'Failed to submit feedback: ' + error.message },
+                { error: 'Failed to submit feedback' },
                 { status: 500 }
             );
         }
