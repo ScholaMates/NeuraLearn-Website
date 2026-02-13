@@ -91,11 +91,13 @@ export default function Contact() {
                 body: JSON.stringify(formData)
             });
 
+            const data = await response.json();
+
             if (response.ok) {
                 toast.success('Feedback sent successfully!');
                 setFormData({ name: '', email: '', message: '' });
             } else {
-                toast.error('Failed to send feedback. Please try again.');
+                toast.error(data.error || 'Failed to send feedback. Please try again.');
             }
         } catch (error) {
             console.error('Submission error:', error);
