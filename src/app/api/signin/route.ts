@@ -1,42 +1,45 @@
-
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { name, email, message } = body;
+        const { email, password } = body;
 
-        if (!name || !email || !message) {
+        if (!email || !password) {
             return NextResponse.json(
-                { error: 'Missing required fields' },
+                { error: 'Missing email or password' },
                 { status: 400 }
             );
         }
 
-        const { error } = await supabaseAdmin
-            .from('feedbacks')
-            .insert({
-                name,
-                email,
-                message,
-            });
+        const emailToUse = email;
+
+
+
+        // Authenticate using the server client
+        const supabase = await createClient();
+
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email: emailToUse,
+            password: password,
+        });
 
         if (error) {
-            console.error('Error submitting feedback:', error);
             return NextResponse.json(
-                { error: 'Failed to submit feedback' },
-                { status: 500 }
+                { error: error.message },
+                { status: 401 }
             );
         }
 
+        // No need to return session manually, cookies are set
         return NextResponse.json(
-            { message: 'Feedback submitted successfully' },
+            { message: 'Sign in successful', user: data.user },
             { status: 200 }
         );
-
     } catch (error) {
-        console.error('Feedback API Error:', error);
+        console.error('Sign in error:', error);
         return NextResponse.json(
             { error: 'Internal Server Error' },
             { status: 500 }
