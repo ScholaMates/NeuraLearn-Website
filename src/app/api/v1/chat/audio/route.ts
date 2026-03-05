@@ -25,18 +25,39 @@ export async function POST(request: Request) {
 
     // 2. Extract raw audio bytes from the request body
     const arrayBuffer = await request.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const pcmBuffer = Buffer.from(arrayBuffer);
 
-    if (buffer.length === 0) {
+    if (pcmBuffer.length === 0) {
       return NextResponse.json(
         { error: "Audio body is empty. Please provide application/octet-stream" },
         { status: 400 }
       );
     }
 
+    // 2.5 Construct WAV Header (16kHz, Mono, 16-bit PCM) for Groq
+    // ESP32 sends raw PCM data without a container, so we must build the RIFF/WAVE header ourselves.
+    const dataLength = pcmBuffer.length;
+    const header = Buffer.alloc(44);
+    
+    header.write("RIFF", 0);
+    header.writeUInt32LE(36 + dataLength, 4);
+    header.write("WAVE", 8);
+    header.write("fmt ", 12);
+    header.writeUInt32LE(16, 16); // Subchunk1Size
+    header.writeUInt16LE(1, 20); // AudioFormat = 1 (PCM)
+    header.writeUInt16LE(1, 22); // NumChannels = 1
+    header.writeUInt32LE(16000, 24); // SampleRate = 16000
+    header.writeUInt32LE(16000 * 1 * 2, 28); // ByteRate = SampleRate * NumChannels * BitsPerSample/8
+    header.writeUInt16LE(1 * 2, 32); // BlockAlign = NumChannels * BitsPerSample/8
+    header.writeUInt16LE(16, 34); // BitsPerSample = 16
+    header.write("data", 36);
+    header.writeUInt32LE(dataLength, 40);
+
+    const wavBuffer = Buffer.concat([header, pcmBuffer]);
+
     // 3. Convert buffer to a File object for Groq SDK
     // The name is arbitrary since we just need the file content
-    const audioFile = new File([buffer], "audio.wav", { type: "audio/wav" });
+    const audioFile = new File([wavBuffer], "audio.wav", { type: "audio/wav" });
 
     // 4. Initialize Groq and Transcribe the audio
     const groqApiKey = process.env.GROQ_API_KEY;
