@@ -187,20 +187,59 @@ export async function POST(request: Request) {
       }
     }
 
-    const model = genAI.getGenerativeModel({
-      model: modelName,
-      systemInstruction: systemInstruction,
-    });
+    let responseText: string;
 
-    const chat = model.startChat({
-      history: historyForGemini,
-      generationConfig: {
-        maxOutputTokens: 2000,
-      },
-    });
+    try {
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        systemInstruction: systemInstruction,
+      });
 
-    const result = await chat.sendMessage(transcribedText);
-    const responseText = result.response.text();
+      const chat = model.startChat({
+        history: historyForGemini,
+        generationConfig: {
+          maxOutputTokens: 2000,
+        },
+      });
+
+      const result = await chat.sendMessage(transcribedText);
+      responseText = result.response.text();
+    } catch (geminiError) {
+      console.warn("Gemini API failed, falling back to proxy:", geminiError);
+
+      const proxyMessages = [];
+      if (systemInstruction) {
+        proxyMessages.push({ role: "system", content: systemInstruction });
+      }
+      for (const msg of historyForGemini) {
+        proxyMessages.push({
+          role: msg.role === "model" ? "assistant" : "user",
+          content: msg.parts[0].text,
+        });
+      }
+      proxyMessages.push({ role: "user", content: transcribedText });
+
+      const proxyResponse = await fetch("https://ai.hackclub.com/proxy/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.HACKCLUB_AI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: proxyMessages,
+        })
+      });
+
+      if (!proxyResponse.ok) {
+        const errorText = await proxyResponse.text();
+        console.error("Proxy fallback failed:", errorText);
+        throw new Error("Both Gemini and fallback failed");
+      }
+
+      const proxyData = await proxyResponse.json();
+      responseText = proxyData.choices[0].message.content;
+    }
 
     // Save Model Message
     await supabase.from("messages").insert({
