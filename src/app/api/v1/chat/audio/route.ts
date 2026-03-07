@@ -92,7 +92,7 @@ export async function POST(request: Request) {
     const { data: profile } = await supabase
       .from("profiles")
       .select(
-        "nickname, response_length, academic_level, major, about_me, custom_model, gemini_api_key, tutor_mode"
+        "nickname, response_length, academic_level, major, about_me, custom_model, gemini_api_key, tutor_mode, elevenlabs_voice_id"
       )
       .eq("id", userId)
       .single();
@@ -164,7 +164,7 @@ export async function POST(request: Request) {
       "You are a helpful AI assistant. Use LaTeX for mathematical expressions. Wrap inline math in single dollar signs ($) and block math in double dollar signs ($$). Please use english unless asked in another language";
 
     if (profile) {
-      const { nickname, response_length, academic_level, major, about_me } =
+      const { nickname, response_length, academic_level, major, about_me, elevenlabs_voice_id } =
         profile;
 
       const activeTutorMode = tutorMode || profile.tutor_mode;
@@ -255,8 +255,9 @@ export async function POST(request: Request) {
     // --- STAGE 5: Text-to-Speech (TTS) ---
     try {
       if (process.env.ELEVENLABS_API_KEY) {
-        // ElevenLabs TTS (Example: Turbo v2.5 for speed/efficiency)
-        const voiceId = process.env.ELEVENLABS_VOICE_ID || "cgSgspJ2msm6clMCkdW9"; // Default voice ID
+        // ElevenLabs TTS (Turbo v2.5 for speed/efficiency)
+        // Use user's preferred voice, or env default, or hardcoded fallback
+        const voiceId = profile?.elevenlabs_voice_id || process.env.ELEVENLABS_VOICE_ID || "cgSgspJ2msm6clMCkdW9"; 
         const ttsResponse = await fetch(
           `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=pcm_16000`,
           {

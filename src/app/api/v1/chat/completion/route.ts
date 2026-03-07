@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     const { data: profile } = await supabase
       .from("profiles")
       .select(
-        "nickname, response_length, academic_level, major, about_me, custom_model, gemini_api_key, tutor_mode"
+        "nickname, response_length, academic_level, major, about_me, custom_model, gemini_api_key, tutor_mode, elevenlabs_voice_id"
       )
       .eq("id", user_id)
       .single();
