@@ -257,7 +257,7 @@ export async function POST(request: Request) {
         // ElevenLabs TTS (Example: Turbo v2.5 for speed/efficiency)
         const voiceId = process.env.ELEVENLABS_VOICE_ID || "cgSgspJ2msm6clMCkdW9"; // Default voice ID
         const ttsResponse = await fetch(
-          `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
+          `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=pcm_16000`,
           {
             method: "POST",
             headers: {
@@ -275,14 +275,35 @@ export async function POST(request: Request) {
           throw new Error("ElevenLabs API failed: " + await ttsResponse.text());
         }
 
-        const audioBuffer = await ttsResponse.arrayBuffer();
+        const pcmBuffer = Buffer.from(await ttsResponse.arrayBuffer());
+
+        // ElevenLabs 'pcm_16000' is raw 16-bit PCM at 16kHz Mono.
+        // We MUST prepend a standard 44-byte WAV header so ESP32 AudioGeneratorWAV can parse it.
+        const dataLength = pcmBuffer.length;
+        const wavHeader = Buffer.alloc(44);
+        
+        wavHeader.write("RIFF", 0);
+        wavHeader.writeUInt32LE(36 + dataLength, 4);
+        wavHeader.write("WAVE", 8);
+        wavHeader.write("fmt ", 12);
+        wavHeader.writeUInt32LE(16, 16); // Subchunk1Size
+        wavHeader.writeUInt16LE(1, 20); // AudioFormat = 1 (PCM)
+        wavHeader.writeUInt16LE(1, 22); // NumChannels = 1
+        wavHeader.writeUInt32LE(16000, 24); // SampleRate = 16000
+        wavHeader.writeUInt32LE(16000 * 1 * 2, 28); // ByteRate = SampleRate * NumChannels * BitsPerSample/8
+        wavHeader.writeUInt16LE(1 * 2, 32); // BlockAlign
+        wavHeader.writeUInt16LE(16, 34); // BitsPerSample = 16
+        wavHeader.write("data", 36);
+        wavHeader.writeUInt32LE(dataLength, 40);
+
+        const finalAudioBuffer = Buffer.concat([wavHeader, pcmBuffer]);
 
         // --- STAGE 6: Cloud Storage (Upload to Supabase) ---
-        const fileName = `${userId}-${Date.now()}.mp3`;
+        const fileName = `${userId}-${Date.now()}.wav`;
         const { data, error } = await supabase.storage
           .from("audio-responses")
-          .upload(fileName, audioBuffer, {
-            contentType: "audio/mp3",
+          .upload(fileName, finalAudioBuffer, {
+            contentType: "audio/wav",
             upsert: false,
           });
 
@@ -308,7 +329,7 @@ export async function POST(request: Request) {
             model: "tts-1",
             input: responseText,
             voice: "alloy",
-            response_format: "mp3"
+            response_format: "wav"
           }),
         });
 
@@ -319,11 +340,11 @@ export async function POST(request: Request) {
         const audioBuffer = await ttsResponse.arrayBuffer();
 
         // --- STAGE 6: Cloud Storage (Upload to Supabase) ---
-        const fileName = `${userId}-${Date.now()}.mp3`;
+        const fileName = `${userId}-${Date.now()}.wav`;
         const { data, error } = await supabase.storage
           .from("audio-responses")
           .upload(fileName, audioBuffer, {
-            contentType: "audio/mp3",
+            contentType: "audio/wav",
             upsert: false,
           });
 
