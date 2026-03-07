@@ -160,7 +160,7 @@ export async function POST(request: Request) {
     });
 
     let systemInstruction =
-      "You are a helpful AI assistant. Use LaTeX for mathematical expressions. Wrap inline math in single dollar signs ($) and block math in double dollar signs ($$). Please use english unless asked in another language";
+      "You are a helpful AI assistant. Use LaTeX for mathematical expressions. Wrap inline math in single dollar signs ($) and block math in double dollar signs ";
 
     if (profile) {
       const { nickname, response_length, academic_level, major, about_me } =
@@ -278,13 +278,13 @@ export async function POST(request: Request) {
         // The arrayBuffer returned might need to be explicitly cast to ensure 16-bit Signed Integers.
         const rawArrayBuffer = await ttsResponse.arrayBuffer();
         
-        // Explicitly view the data as Int16 (Signed 16-bit Integers) to guarantee no floats
+        // Explicitly view the data as Int16 (Signed 16-bit Integers, Little Endian) to guarantee no floats
         const int16Data = new Int16Array(rawArrayBuffer);
         
         // Convert the clean Int16 array back to an underlying Buffer for concatenation
         const pcmBuffer = Buffer.from(int16Data.buffer);
 
-        // ElevenLabs 'pcm_16000' is raw 16-bit PCM at 16kHz Mono.
+        // ElevenLabs 'pcm_16000' is raw 16-bit Signed Integer (s16le) PCM at 16kHz Mono.
         // We MUST prepend a standard 44-byte WAV header so ESP32 AudioGeneratorWAV can parse it.
         const dataLength = pcmBuffer.length;
         const wavHeader = Buffer.alloc(44);
