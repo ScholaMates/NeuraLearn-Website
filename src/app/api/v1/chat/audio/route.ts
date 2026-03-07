@@ -248,11 +248,109 @@ export async function POST(request: Request) {
       content: responseText,
     });
 
+    let audioUrl: string | null = null;
+    let fallbackUsed = false;
+
+    // --- STAGE 5: Text-to-Speech (TTS) ---
+    try {
+      if (process.env.ELEVENLABS_API_KEY) {
+        // ElevenLabs TTS (Example: Turbo v2.5 for speed/efficiency)
+        const voiceId = process.env.ELEVENLABS_VOICE_ID || "cgSgspJ2msm6clMCkdW9"; // Default voice ID
+        const ttsResponse = await fetch(
+          `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
+          {
+            method: "POST",
+            headers: {
+              "xi-api-key": process.env.ELEVENLABS_API_KEY,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              text: responseText,
+              model_id: "eleven_turbo_v2_5",
+            }),
+          }
+        );
+
+        if (!ttsResponse.ok) {
+          throw new Error("ElevenLabs API failed: " + await ttsResponse.text());
+        }
+
+        const audioBuffer = await ttsResponse.arrayBuffer();
+
+        // --- STAGE 6: Cloud Storage (Upload to Supabase) ---
+        const fileName = `${userId}-${Date.now()}.mp3`;
+        const { data, error } = await supabase.storage
+          .from("audio-responses")
+          .upload(fileName, audioBuffer, {
+            contentType: "audio/mp3",
+            upsert: false,
+          });
+
+        if (error) {
+          throw new Error("Supabase Storage Error: " + error.message);
+        }
+
+        const { data: publicUrlData } = supabase.storage
+          .from("audio-responses")
+          .getPublicUrl(fileName);
+
+        audioUrl = publicUrlData.publicUrl;
+
+      } else if (process.env.OPENAI_API_KEY) {
+        // OpenAI TTS
+        const ttsResponse = await fetch("https://api.openai.com/v1/audio/speech", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "tts-1",
+            input: responseText,
+            voice: "alloy",
+            response_format: "mp3"
+          }),
+        });
+
+        if (!ttsResponse.ok) {
+          throw new Error("OpenAI API failed: " + await ttsResponse.text());
+        }
+
+        const audioBuffer = await ttsResponse.arrayBuffer();
+
+        // --- STAGE 6: Cloud Storage (Upload to Supabase) ---
+        const fileName = `${userId}-${Date.now()}.mp3`;
+        const { data, error } = await supabase.storage
+          .from("audio-responses")
+          .upload(fileName, audioBuffer, {
+            contentType: "audio/mp3",
+            upsert: false,
+          });
+
+        if (error) {
+          throw new Error("Supabase Storage Error: " + error.message);
+        }
+
+        const { data: publicUrlData } = supabase.storage
+          .from("audio-responses")
+          .getPublicUrl(fileName);
+
+        audioUrl = publicUrlData.publicUrl;
+      } else {
+        // No TTS provider API key, skip TTS
+        console.warn("No TTS API key configured. Skipping TTS generation.");
+      }
+    } catch (ttsError) {
+      console.error("TTS or Upload pipeline failed:", ttsError);
+      fallbackUsed = true;
+    }
+
     return NextResponse.json({
-      text: responseText,
-      transcribed_text: transcribedText,
+      status: "success",
+      transcription: transcribedText,
+      text_response: responseText,
+      audio_url: audioUrl, // Null if no configured API keys or if failed
       chat_id: chatId,
-      audio_url: null, // Placeholder for future TTS
     });
   } catch (error) {
     console.error("API Error:", error);
