@@ -73,6 +73,7 @@ export async function POST(request: Request) {
       file: audioFile,
       model: "whisper-large-v3-turbo", // Fastest model
       response_format: "text",
+      language: "en", // Force English to prevent hallucinating other languages
     });
 
     const transcribedText = typeof transcription === "string" ? transcription : transcription.text;
@@ -160,7 +161,7 @@ export async function POST(request: Request) {
     });
 
     let systemInstruction =
-      "You are a helpful AI assistant. Use LaTeX for mathematical expressions. Wrap inline math in single dollar signs ($) and block math in double dollar signs ";
+      "You are a helpful AI assistant. Use LaTeX for mathematical expressions. Wrap inline math in single dollar signs ($) and block math in double dollar signs ($$). Please use english unless asked in another language";
 
     if (profile) {
       const { nickname, response_length, academic_level, major, about_me } =
