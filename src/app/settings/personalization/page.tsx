@@ -17,6 +17,7 @@ export default function PersonalizationPage() {
     const supabase = createClient();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [voices, setVoices] = useState<{id: string, name: string, preview_url: string}[]>([]);
     const [formData, setFormData] = useState({
         nickname: '',
         tutor_mode: 'socratic',
@@ -26,9 +27,22 @@ export default function PersonalizationPage() {
         about_me: '',
         custom_model: 'gemini-2.5-flash',
         gemini_api_key: '',
+        elevenlabs_voice_id: '',
     });
 
     useEffect(() => {
+        const fetchVoices = async () => {
+            try {
+                const res = await fetch('/api/v1/elevenlabs/voices');
+                if (res.ok) {
+                    const data = await res.json();
+                    setVoices(data.voices || []);
+                }
+            } catch (err) {
+                console.error("Failed to load voices:", err);
+            }
+        };
+
         const fetchProfile = async () => {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
@@ -38,7 +52,7 @@ export default function PersonalizationPage() {
 
             const { data, error } = await supabase
                 .from('profiles')
-                .select('nickname, tutor_mode, response_length, academic_level, major, about_me, custom_model, gemini_api_key')
+                .select('nickname, tutor_mode, response_length, academic_level, major, about_me, custom_model, gemini_api_key, elevenlabs_voice_id')
                 .eq('id', session.user.id)
                 .single();
 
@@ -52,11 +66,13 @@ export default function PersonalizationPage() {
                     about_me: data.about_me || '',
                     custom_model: data.custom_model || 'gemini-2.5-flash',
                     gemini_api_key: data.gemini_api_key || '',
+                    elevenlabs_voice_id: data.elevenlabs_voice_id || '',
                 });
             }
             setLoading(false);
         };
 
+        fetchVoices();
         fetchProfile();
     }, [router]);
 
@@ -177,6 +193,35 @@ export default function PersonalizationPage() {
                             ))}
                         </select>
                     </div>
+
+                    {voices.length > 0 && (
+                        <div>
+                            <label htmlFor="elevenlabs_voice_id" className="block text-sm font-medium text-mocha-text mb-2 flex items-center gap-2">
+                                Voice Personality
+                            </label>
+                            <div className="flex gap-4 items-center">
+                                <select
+                                    id="elevenlabs_voice_id"
+                                    name="elevenlabs_voice_id"
+                                    value={formData.elevenlabs_voice_id}
+                                    onChange={handleChange}
+                                    className="block w-full rounded-md border-0 bg-mocha-surface1 py-2 px-3 text-mocha-text ring-1 ring-inset ring-mocha-surface2 focus:ring-2 focus:ring-inset focus:ring-mocha-mauve sm:text-sm sm:leading-6"
+                                >
+                                    <option value="">Default Voice</option>
+                                    {voices.map(voice => (
+                                        <option key={voice.id} value={voice.id}>{voice.name}</option>
+                                    ))}
+                                </select>
+                                {formData.elevenlabs_voice_id && voices.find(v => v.id === formData.elevenlabs_voice_id)?.preview_url && (
+                                    <audio 
+                                        controls 
+                                        className="h-9 w-64 rounded-md outline-none" 
+                                        src={voices.find(v => v.id === formData.elevenlabs_voice_id)?.preview_url}
+                                    />
+                                )}
+                            </div>
+                        </div>
+                    )}
 
                     <div>
                         <label htmlFor="response_length" className="block text-sm font-medium text-mocha-text mb-2">
