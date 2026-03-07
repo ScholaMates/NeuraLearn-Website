@@ -275,12 +275,23 @@ export async function POST(request: Request) {
           throw new Error("ElevenLabs API failed: " + await ttsResponse.text());
         }
 
-        const pcmBuffer = Buffer.from(await ttsResponse.arrayBuffer());
+        // The arrayBuffer returned might need to be explicitly cast to ensure 16-bit Signed Integers.
+        const rawArrayBuffer = await ttsResponse.arrayBuffer();
+        
+        // Explicitly view the data as Int16 (Signed 16-bit Integers) to guarantee no floats
+        const int16Data = new Int16Array(rawArrayBuffer);
+        
+        // Convert the clean Int16 array back to an underlying Buffer for concatenation
+        const pcmBuffer = Buffer.from(int16Data.buffer);
 
         // ElevenLabs 'pcm_16000' is raw 16-bit PCM at 16kHz Mono.
         // We MUST prepend a standard 44-byte WAV header so ESP32 AudioGeneratorWAV can parse it.
         const dataLength = pcmBuffer.length;
         const wavHeader = Buffer.alloc(44);
+        
+        const sampleRate = 16000;
+        const numChannels = 1;
+        const bitsPerSample = 16;
         
         wavHeader.write("RIFF", 0);
         wavHeader.writeUInt32LE(36 + dataLength, 4);
@@ -288,11 +299,11 @@ export async function POST(request: Request) {
         wavHeader.write("fmt ", 12);
         wavHeader.writeUInt32LE(16, 16); // Subchunk1Size
         wavHeader.writeUInt16LE(1, 20); // AudioFormat = 1 (PCM)
-        wavHeader.writeUInt16LE(1, 22); // NumChannels = 1
-        wavHeader.writeUInt32LE(16000, 24); // SampleRate = 16000
-        wavHeader.writeUInt32LE(16000 * 1 * 2, 28); // ByteRate = SampleRate * NumChannels * BitsPerSample/8
-        wavHeader.writeUInt16LE(1 * 2, 32); // BlockAlign
-        wavHeader.writeUInt16LE(16, 34); // BitsPerSample = 16
+        wavHeader.writeUInt16LE(numChannels, 22); 
+        wavHeader.writeUInt32LE(sampleRate, 24); 
+        wavHeader.writeUInt32LE(sampleRate * numChannels * (bitsPerSample / 8), 28); // ByteRate
+        wavHeader.writeUInt16LE(numChannels * (bitsPerSample / 8), 32); // BlockAlign
+        wavHeader.writeUInt16LE(bitsPerSample, 34); 
         wavHeader.write("data", 36);
         wavHeader.writeUInt32LE(dataLength, 40);
 
