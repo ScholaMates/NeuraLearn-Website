@@ -108,7 +108,7 @@ export default function About() {
     ];
 
     return (
-        <div className="min-h-screen bg-mocha-base text-mocha-text pt-24 pb-16 font-space">
+        <div className="min-h-screen bg-mocha-base text-mocha-text pt-24 pb-16 font-space page-grid-bg">
             <div className="container mx-auto px-6">
                 {/* Mission Section */}
                 <section className="container mx-auto max-w-4xl text-center mb-32">

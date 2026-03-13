@@ -5,7 +5,7 @@ import FAQ from "@/components/FAQ";
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-mocha-base text-mocha-text selection:bg-mocha-pink selection:text-mocha-base font-space">
+    <main className="min-h-screen bg-mocha-base text-mocha-text selection:bg-mocha-pink selection:text-mocha-base font-space page-grid-bg">
       <Hero />
       <Features />
       <VideoSection />

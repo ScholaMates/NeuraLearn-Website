@@ -106,7 +106,7 @@ export default function Contact() {
     };
 
     return (
-        <div className="min-h-screen bg-mocha-base text-mocha-text pt-24 pb-16 font-space">
+        <div className="min-h-screen bg-mocha-base text-mocha-text pt-24 pb-16 font-space page-grid-bg">
             <div className="container mx-auto px-6 max-w-5xl">
                 {/* Header */}
                 <div ref={headerRef} className="text-center mb-16">
