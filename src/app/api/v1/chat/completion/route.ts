@@ -147,11 +147,20 @@ export async function POST(request: Request) {
     }
 
     let responseText: string;
+    let action: string | undefined;
+
+    const tools: any = [{
+      functionDeclarations: [{
+        name: "take_picture",
+        description: "Call this tool if the user asks for a photo, to see something, or to describe their surroundings."
+      }]
+    }];
 
     try {
       const model = genAI.getGenerativeModel({
         model: modelName,
         systemInstruction: systemInstruction,
+        tools: tools,
       });
 
       const chat = model.startChat({
@@ -162,7 +171,25 @@ export async function POST(request: Request) {
       });
 
       const result = await chat.sendMessage(text);
-      responseText = result.response.text();
+      const response = result.response;
+      
+      const functionCalls = response.functionCalls();
+      if (functionCalls && functionCalls.length > 0) {
+        const call = functionCalls[0];
+        if (call.name === "take_picture") {
+           action = "TAKE_PICTURE";
+           try {
+             responseText = response.text();
+             if (!responseText) responseText = "Sure! Get ready.";
+           } catch {
+             responseText = "Sure! Get ready.";
+           }
+        } else {
+           responseText = response.text() || "Sure.";
+        }
+      } else {
+        responseText = response.text();
+      }
     } catch (geminiError) {
       console.warn("Gemini API failed, falling back to proxy:", geminiError);
 
@@ -187,6 +214,15 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           model: "google/gemini-2.5-flash",
           messages: proxyMessages,
+          tools: [
+            {
+              type: "function",
+              function: {
+                name: "take_picture",
+                description: "Call this tool if the user asks for a photo, to see something, or to describe their surroundings."
+              }
+            }
+          ]
         })
       });
 
@@ -197,7 +233,19 @@ export async function POST(request: Request) {
       }
 
       const proxyData = await proxyResponse.json();
-      responseText = proxyData.choices[0].message.content;
+      const choice = proxyData.choices[0];
+      
+      if (choice.message.tool_calls && choice.message.tool_calls.length > 0) {
+        const toolCall = choice.message.tool_calls[0];
+        if (toolCall.function.name === "take_picture") {
+            action = "TAKE_PICTURE";
+            responseText = choice.message.content || "Sure! Get ready.";
+        } else {
+            responseText = choice.message.content || "Sure.";
+        }
+      } else {
+        responseText = choice.message.content;
+      }
     }
 
     // Save Model Message
@@ -211,6 +259,7 @@ export async function POST(request: Request) {
       text: responseText,
       chat_id: chatId,
       audio_url: null, // Placeholder for future TTS
+      ...(action ? { action } : {}),
     });
   } catch (error) {
     console.error("API Error:", error);

@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export async function POST(request: Request) {
@@ -18,35 +17,65 @@ export async function POST(request: Request) {
 
     const supabase = supabaseAdmin;
 
-    // Fetch user profile
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("gemini_api_key")
-      .eq("id", userId)
-      .single();
-
-    const apiKey = profile?.gemini_api_key || process.env.GEMINI_API_KEY!;
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // Use flash for vision as well
-
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const base64Image = buffer.toString("base64");
-
     const prompt =
       "Analyze this image and explain the academic concept or solve the problem shown. Be helpful and clear.";
 
-    const result = await model.generateContent([
-      prompt,
-      {
-        inlineData: {
-          data: base64Image,
-          mimeType: file.type || "image/jpeg",
-        },
-      },
-    ]);
+    const originalName = file.name || "image.jpg";
+    const fileName = `${userId}-${Date.now()}-${originalName.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+    
+    // Upload image to Supabase
+    const { error: uploadError } = await supabase.storage
+      .from("chat-images")
+      .upload(fileName, file, {
+        contentType: file.type || "image/jpeg",
+        upsert: false,
+      });
 
-    const responseText = result.response.text();
+    if (uploadError) {
+      throw new Error("Supabase Storage Error: " + uploadError.message);
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from("chat-images")
+      .getPublicUrl(fileName);
+
+    const imageUrl = publicUrlData.publicUrl;
+
+    const proxyMessages = [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: prompt },
+          {
+            type: "image_url",
+            image_url: {
+              url: imageUrl
+            }
+          }
+        ]
+      }
+    ];
+
+    const proxyResponse = await fetch("https://ai.hackclub.com/proxy/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.HACKCLUB_AI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: proxyMessages,
+      })
+    });
+
+    if (!proxyResponse.ok) {
+      const errorText = await proxyResponse.text();
+      console.error("Vision proxy failed:", errorText);
+      throw new Error("Vision generation failed");
+    }
+
+    const proxyData = await proxyResponse.json();
+    const responseText = proxyData.choices[0].message.content;
 
     // Save conversation to DB
     let finalChatId = chatId;
