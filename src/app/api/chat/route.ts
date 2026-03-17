@@ -79,7 +79,7 @@ export async function POST(request: Request) {
                 console.error('Failed to generate title with Gemini, trying fallback:', err);
                 // Fallback to hackclub proxy for title generation
                 try {
-                    const proxyRes = await fetch('https://ai.hackclub.com/chat/completions', {
+                    const proxyRes = await fetch('https://ai.hackclub.com/proxy/v1/chat/completions', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.HACKCLUB_AI_API_KEY}` },
                         body: JSON.stringify({
@@ -225,7 +225,7 @@ export async function POST(request: Request) {
             }
             proxyMessages.push({ role: 'user', content: message });
 
-            const proxyResponse = await fetch('https://ai.hackclub.com/chat/completions', {
+            const proxyResponse = await fetch('https://ai.hackclub.com/proxy/v1/chat/completions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.HACKCLUB_AI_API_KEY}` },
                 body: JSON.stringify({
