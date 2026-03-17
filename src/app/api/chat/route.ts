@@ -76,7 +76,23 @@ export async function POST(request: Request) {
                 const titleResponse = await titleResult.response;
                 title = titleResponse.text().trim();
             } catch (err) {
-                console.error('Failed to generate title:', err);
+                console.error('Failed to generate title with Gemini, trying fallback:', err);
+                // Fallback to hackclub proxy for title generation
+                try {
+                    const proxyRes = await fetch('https://ai.hackclub.com/chat/completions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.HACKCLUB_AI_API_KEY}` },
+                        body: JSON.stringify({
+                            messages: [{ role: 'user', content: `Generate a short, descriptive, and engaging title (max 6 words) for a conversation starting with this message. It should capture the essence of the user's intent. Do not use quotes: ${message}` }]
+                        })
+                    });
+                    if (proxyRes.ok) {
+                        const proxyData = await proxyRes.json();
+                        title = proxyData.choices?.[0]?.message?.content?.trim() || title;
+                    }
+                } catch (fallbackErr) {
+                    console.error('Fallback title generation also failed:', fallbackErr);
+                }
             }
 
             const { data: newChat, error: chatError } = await supabase
@@ -143,47 +159,134 @@ export async function POST(request: Request) {
             }
         }
 
-        const model = genAI.getGenerativeModel({
-            model: modelName,
-            systemInstruction: systemInstruction
-        });
-
-        const chat = model.startChat({
-            history: historyForGemini,
-            generationConfig: {
-                maxOutputTokens: 2000,
-            },
-        });
-
-        const result = await chat.sendMessageStream(message);
-
         const encoder = new TextEncoder();
-        const stream = new ReadableStream({
-            async start(controller) {
-                let fullText = '';
-                try {
-                    for await (const chunk of result.stream) {
-                        const chunkText = chunk.text();
-                        fullText += chunkText;
-                        controller.enqueue(encoder.encode(chunkText));
+        let stream: ReadableStream;
+
+        let geminiResult: any = null;
+        let useProxy = false;
+
+        try {
+            const model = genAI.getGenerativeModel({
+                model: modelName,
+                systemInstruction: systemInstruction
+            });
+
+            const chat = model.startChat({
+                history: historyForGemini,
+                generationConfig: {
+                    maxOutputTokens: 2000,
+                },
+            });
+
+            geminiResult = await chat.sendMessageStream(message);
+        } catch (geminiInitError) {
+            console.warn('Gemini API failed, falling back to hackclub proxy:', geminiInitError);
+            useProxy = true;
+        }
+
+        if (!useProxy && geminiResult) {
+            stream = new ReadableStream({
+                async start(controller) {
+                    let fullText = '';
+                    try {
+                        for await (const chunk of geminiResult.stream) {
+                            const chunkText = chunk.text();
+                            fullText += chunkText;
+                            controller.enqueue(encoder.encode(chunkText));
+                        }
+
+                        // Save Model Message to DB
+                        await supabase
+                            .from('messages')
+                            .insert({
+                                chat_id: chatId,
+                                role: 'model',
+                                content: fullText,
+                            });
+
+                        controller.close();
+                    } catch (streamError) {
+                        console.warn('Gemini streaming error, trying proxy fallback:', streamError);
+                        controller.error(streamError);
                     }
-
-                    // Save Model Message to DB
-                    await supabase
-                        .from('messages')
-                        .insert({
-                            chat_id: chatId,
-                            role: 'model',
-                            content: fullText,
-                        });
-
-                    controller.close();
-                } catch (error) {
-                    console.error('Streaming error:', error);
-                    controller.error(error);
                 }
+            });
+        } else {
+            // Fallback: ai.hackclub.com with SSE streaming
+            const proxyMessages: { role: string; content: string }[] = [];
+            if (systemInstruction) {
+                proxyMessages.push({ role: 'system', content: systemInstruction });
             }
-        });
+            for (const msg of historyForGemini) {
+                proxyMessages.push({
+                    role: msg.role === 'model' ? 'assistant' : 'user',
+                    content: msg.parts[0].text,
+                });
+            }
+            proxyMessages.push({ role: 'user', content: message });
+
+            const proxyResponse = await fetch('https://ai.hackclub.com/chat/completions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.HACKCLUB_AI_API_KEY}` },
+                body: JSON.stringify({
+                    messages: proxyMessages,
+                    stream: true,
+                })
+            });
+
+            if (!proxyResponse.ok || !proxyResponse.body) {
+                const errText = await proxyResponse.text().catch(() => 'unknown');
+                console.error('Proxy fallback failed:', errText);
+                throw new Error('Both Gemini and fallback proxy failed');
+            }
+
+            const proxyBody = proxyResponse.body;
+            stream = new ReadableStream({
+                async start(controller) {
+                    let fullText = '';
+                    const reader = proxyBody.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = '';
+                    try {
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+                            buffer += decoder.decode(value, { stream: true });
+                            const lines = buffer.split('\n');
+                            buffer = lines.pop() ?? '';
+                            for (const line of lines) {
+                                const trimmed = line.trim();
+                                if (!trimmed.startsWith('data:')) continue;
+                                const data = trimmed.slice(5).trim();
+                                if (data === '[DONE]') continue;
+                                try {
+                                    const parsed = JSON.parse(data);
+                                    const delta = parsed.choices?.[0]?.delta?.content;
+                                    if (delta) {
+                                        fullText += delta;
+                                        controller.enqueue(encoder.encode(delta));
+                                    }
+                                } catch { /* ignore malformed SSE lines */ }
+                            }
+                        }
+
+                        // Save Model Message to DB
+                        await supabase
+                            .from('messages')
+                            .insert({
+                                chat_id: chatId,
+                                role: 'model',
+                                content: fullText,
+                            });
+
+                        controller.close();
+                    } catch (proxyStreamError) {
+                        console.error('Proxy streaming error:', proxyStreamError);
+                        controller.error(proxyStreamError);
+                    }
+                }
+            });
+        }
 
         const responseHeaders: Record<string, string> = {
             'Content-Type': 'text/plain; charset=utf-8',
