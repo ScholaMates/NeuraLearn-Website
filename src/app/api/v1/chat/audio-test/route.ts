@@ -100,71 +100,6 @@ export async function POST(request: Request) {
       .eq("id", userId)
       .single();
 
-    const apiKey = profile?.gemini_api_key || process.env.GEMINI_API_KEY!;
-    const modelName =
-      profile?.custom_model ||
-      process.env.GEMINI_AI_MODEL ||
-      "gemini-1.5-flash";
-
-    const genAI = new GoogleGenerativeAI(apiKey);
-
-    // Fetch history if this is an existing chat
-    let historyForGemini: { role: string; parts: { text: string }[] }[] = [];
-    if (providedChatId) {
-      const { data: previousMessages } = await supabase
-        .from("messages")
-        .select("role, content")
-        .eq("chat_id", providedChatId)
-        .order("created_at", { ascending: true });
-
-      if (previousMessages) {
-        historyForGemini = previousMessages.map((msg) => ({
-          role: msg.role,
-          parts: [{ text: msg.content }],
-        }));
-      }
-    }
-
-    // Create new chat if no ID provided
-    if (!chatId) {
-      let title =
-        transcribedText.substring(0, 30) +
-        (transcribedText.length > 30 ? "..." : "");
-
-      try {
-        const titleModel = genAI.getGenerativeModel({ model: modelName });
-        const titleResult = await titleModel.generateContent(
-          `Generate a short, descriptive title (max 6 words) for this user query: "${transcribedText}". No quotes.`,
-        );
-        title = titleResult.response.text().trim();
-      } catch (ignored) {}
-
-      const { data: newChat, error: chatError } = await supabase
-        .from("chats")
-        .insert({
-          user_id: userId,
-          title: title,
-        })
-        .select()
-        .single();
-
-      if (chatError || !newChat) {
-        console.error("Error creating chat:", chatError);
-        return NextResponse.json(
-          { error: "Failed to create chat session" },
-          { status: 500 },
-        );
-      }
-      chatId = newChat.id;
-    }
-
-    // Save User Message (The transribed text)
-    await supabase.from("messages").insert({
-      chat_id: chatId,
-      role: "user",
-      content: transcribedText,
-    });
-
     let systemInstruction =
       "You are a helpful AI assistant. Use LaTeX for mathematical expressions. Wrap inline math in single dollar signs ($) and block math in double dollar signs ($$). Please use english unless asked in another language";
 
@@ -219,108 +154,57 @@ export async function POST(request: Request) {
       },
     ];
 
-    try {
-      const model = genAI.getGenerativeModel({
-        model: modelName,
-        systemInstruction: systemInstruction,
-        tools: tools,
-      });
+    const proxyMessages = [];
+    if (systemInstruction) {
+      proxyMessages.push({ role: "system", content: systemInstruction });
+    }
+    proxyMessages.push({ role: "user", content: transcribedText });
 
-      const chat = model.startChat({
-        history: historyForGemini,
-        generationConfig: {
-          maxOutputTokens: 2000,
+    const proxyResponse = await fetch(
+      "https://ai.hackclub.com/proxy/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.HACKCLUB_AI_API_KEY}`,
+          "Content-Type": "application/json",
         },
-      });
-
-      const result = await chat.sendMessage(transcribedText);
-      const response = result.response;
-
-      const functionCalls = response.functionCalls();
-      if (functionCalls && functionCalls.length > 0) {
-        const call = functionCalls[0];
-        if (call.name === "take_picture") {
-          action = "TAKE_PICTURE";
-          try {
-            responseText = response.text();
-            if (!responseText) responseText = "Sure! Get ready.";
-          } catch {
-            responseText = "Sure! Get ready.";
-          }
-        } else {
-          responseText = response.text() || "Sure.";
-        }
-      } else {
-        responseText = response.text();
-      }
-    } catch (geminiError) {
-      console.warn("Gemini API failed, falling back to proxy:", geminiError);
-
-      const proxyMessages = [];
-      if (systemInstruction) {
-        proxyMessages.push({ role: "system", content: systemInstruction });
-      }
-      for (const msg of historyForGemini) {
-        proxyMessages.push({
-          role: msg.role === "model" ? "assistant" : "user",
-          content: msg.parts[0].text,
-        });
-      }
-      proxyMessages.push({ role: "user", content: transcribedText });
-
-      const proxyResponse = await fetch(
-        "https://ai.hackclub.com/proxy/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${process.env.HACKCLUB_AI_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
-            messages: proxyMessages,
-            tools: [
-              {
-                type: "function",
-                function: {
-                  name: "take_picture",
-                  description:
-                    "Call this tool if the user asks for a photo, to see something, or to describe their surroundings.",
-                },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: proxyMessages,
+          tools: [
+            {
+              type: "function",
+              function: {
+                name: "take_picture",
+                description:
+                  "Call this tool if the user asks for a photo, to see something, or to describe their surroundings.",
               },
-            ],
-          }),
-        },
-      );
+            },
+          ],
+        }),
+      },
+    );
 
-      if (!proxyResponse.ok) {
-        const errorText = await proxyResponse.text();
-        console.error("Proxy fallback failed:", errorText);
-        throw new Error("Both Gemini and fallback failed");
-      }
-
-      const proxyData = await proxyResponse.json();
-      const choice = proxyData.choices[0];
-
-      if (choice.message.tool_calls && choice.message.tool_calls.length > 0) {
-        const toolCall = choice.message.tool_calls[0];
-        if (toolCall.function.name === "take_picture") {
-          action = "TAKE_PICTURE";
-          responseText = choice.message.content || "Sure! Get ready.";
-        } else {
-          responseText = choice.message.content || "Sure.";
-        }
-      } else {
-        responseText = choice.message.content;
-      }
+    if (!proxyResponse.ok) {
+      const errorText = await proxyResponse.text();
+      console.error("Proxy fallback failed:", errorText);
+      throw new Error("Both Gemini and fallback failed");
     }
 
-    // Save Model Message
-    await supabase.from("messages").insert({
-      chat_id: chatId,
-      role: "model",
-      content: responseText,
-    });
+    const proxyData = await proxyResponse.json();
+    const choice = proxyData.choices[0];
+
+    if (choice.message.tool_calls && choice.message.tool_calls.length > 0) {
+      const toolCall = choice.message.tool_calls[0];
+      if (toolCall.function.name === "take_picture") {
+        action = "TAKE_PICTURE";
+        responseText = choice.message.content || "Sure! Get ready.";
+      } else {
+        responseText = choice.message.content || "Sure.";
+      }
+    } else {
+      responseText = choice.message.content;
+    }
 
     let audioUrl: string | null = null;
 
