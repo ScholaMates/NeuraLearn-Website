@@ -31,13 +31,8 @@ const features = [
         description: 'Utilizes an onboard camera to interpret problems from physical documents and provide AI-powered help.',
     },
     {
-        icon: <FileText className="h-8 w-8 text-mocha-green" />,
-        title: 'Automated Note-Taking',
-        description: 'Seamlessly integrates with Notion, Obsidian, or Google Docs to automatically log conversations.',
-    },
-    {
         icon: <Smartphone className="h-8 w-8 text-mocha-lavender" />,
-        title: 'Companion App Integration',
+        title: 'Companion Web App Integration',
         description: 'Communicates with a backend to sync history and settings with a companion web portal.',
     },
 ];

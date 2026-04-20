@@ -58,17 +58,17 @@ export default function About() {
     const team = [
         {
             name: "Fabio Canavarro",
-            role: "Founder & CEO",
+            role: "Leader & Lead Developer",
             image: "/team/fabio.jpg",
-            bio: "Visionary leader with a passion for educational technology.",
-            specialty: "Strategy & EdTech Innovation"
+            bio: "Leader with a passion for educational technology and building cool stuff",
+            specialty: "Strategy & CS"
         },
         {
             name: "Clarissa Lawrence Pearl",
-            role: "Lead Engineer",
+            role: "Vice Leader & Lead Designer",
             image: "/team/IMG_1508.JPG",
-            bio: "Full-stack wizard ensuring our systems are robust and scalable.",
-            specialty: "Scalable Architecture & IoT"
+            bio: "Vice Leader with a passion for design and building cool stuff",
+            specialty: "Design & Creativity"
         },
         {
             name:"Chelsea Chen",
@@ -86,17 +86,17 @@ export default function About() {
         },
         {
             name: "Hewitt Hartanoto",
-            role: "AI Specialist",
+            role: "Lead Full stack developer",
             image: "/team/IMG_1512.JPG",
-            bio: "Developing the intelligent core of NeuraLearn.",
-            specialty: "Deep Learning & NLP"
+            bio: "Developed the main website of NeuraLearn",
+            specialty: "Web Development"
         },
         {
             name: "Jaylene Ponassis",
-            role: "AI Specialist",
+            role: "Designer",
             image: "/team/IMG_1507.JPG",
-            bio: "Developing the intelligent core of NeuraLearn.",
-            specialty: "Deep Learning & NLP"
+            bio: "Designer with a passion for design",
+            specialty: "Design & Creativity"
         },
         {
             name: "Arthur Stanlinov Sinaga",
