@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     if (!userId) {
       return NextResponse.json(
         { error: "x-user-id header is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
     chatId = providedChatId || undefined;
@@ -29,8 +29,10 @@ export async function POST(request: Request) {
 
     if (pcmBuffer.length === 0) {
       return NextResponse.json(
-        { error: "Audio body is empty. Please provide application/octet-stream" },
-        { status: 400 }
+        {
+          error: "Audio body is empty. Please provide application/octet-stream",
+        },
+        { status: 400 },
       );
     }
 
@@ -38,7 +40,7 @@ export async function POST(request: Request) {
     // ESP32 sends raw PCM data without a container, so we must build the RIFF/WAVE header ourselves.
     const dataLength = pcmBuffer.length;
     const header = Buffer.alloc(44);
-    
+
     header.write("RIFF", 0);
     header.writeUInt32LE(36 + dataLength, 4);
     header.write("WAVE", 8);
@@ -64,7 +66,7 @@ export async function POST(request: Request) {
     if (!groqApiKey) {
       return NextResponse.json(
         { error: "GROQ_API_KEY is not configured" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -76,13 +78,14 @@ export async function POST(request: Request) {
       language: "en", // Force English to prevent hallucinating other languages
     });
 
-    const transcribedText = typeof transcription === "string" ? transcription : transcription.text;
-    
+    const transcribedText =
+      typeof transcription === "string" ? transcription : transcription.text;
+
     if (!transcribedText || transcribedText.trim() === "") {
-        return NextResponse.json(
-            { error: "Could not detect speech in audio." },
-            { status: 400 }
-        );
+      return NextResponse.json(
+        { error: "Could not detect speech in audio." },
+        { status: 400 },
+      );
     }
 
     // --- GEMINI PIPELINE REUSED FROM COMPLETION ENDPOINT ---
@@ -92,7 +95,7 @@ export async function POST(request: Request) {
     const { data: profile } = await supabase
       .from("profiles")
       .select(
-        "nickname, response_length, academic_level, major, about_me, custom_model, gemini_api_key, tutor_mode, elevenlabs_voice_id"
+        "nickname, response_length, academic_level, major, about_me, custom_model, gemini_api_key, tutor_mode, elevenlabs_voice_id",
       )
       .eq("id", userId)
       .single();
@@ -124,12 +127,14 @@ export async function POST(request: Request) {
 
     // Create new chat if no ID provided
     if (!chatId) {
-      let title = transcribedText.substring(0, 30) + (transcribedText.length > 30 ? "..." : "");
+      let title =
+        transcribedText.substring(0, 30) +
+        (transcribedText.length > 30 ? "..." : "");
 
       try {
         const titleModel = genAI.getGenerativeModel({ model: modelName });
         const titleResult = await titleModel.generateContent(
-          `Generate a short, descriptive title (max 6 words) for this user query: "${transcribedText}". No quotes.`
+          `Generate a short, descriptive title (max 6 words) for this user query: "${transcribedText}". No quotes.`,
         );
         title = titleResult.response.text().trim();
       } catch (ignored) {}
@@ -147,7 +152,7 @@ export async function POST(request: Request) {
         console.error("Error creating chat:", chatError);
         return NextResponse.json(
           { error: "Failed to create chat session" },
-          { status: 500 }
+          { status: 500 },
         );
       }
       chatId = newChat.id;
@@ -164,20 +169,31 @@ export async function POST(request: Request) {
       "You are a helpful AI assistant. Use LaTeX for mathematical expressions. Wrap inline math in single dollar signs ($) and block math in double dollar signs ($$). Please use english unless asked in another language";
 
     if (profile) {
-      const { nickname, response_length, academic_level, major, about_me, elevenlabs_voice_id } =
-        profile;
+      const {
+        nickname,
+        response_length,
+        academic_level,
+        major,
+        about_me,
+        elevenlabs_voice_id,
+      } = profile;
 
       const activeTutorMode = tutorMode || profile.tutor_mode;
       const parts = [];
 
       if (nickname) parts.push(`The user's nickname is ${nickname}.`);
-      if (major) parts.push(`The user's major/field of study is ${major}. Use relevant analogies.`);
+      if (major)
+        parts.push(
+          `The user's major/field of study is ${major}. Use relevant analogies.`,
+        );
       if (about_me) parts.push(`User info: ${about_me}`);
 
       const modeConfig = tutorModes.find((m) => m.id === activeTutorMode);
       if (modeConfig) parts.push(modeConfig.prompt);
 
-      const lengthConfig = responseLengths.find((l) => l.id === response_length);
+      const lengthConfig = responseLengths.find(
+        (l) => l.id === response_length,
+      );
       if (lengthConfig) parts.push(lengthConfig.prompt);
 
       const levelConfig = academicLevels.find((l) => l.id === academic_level);
@@ -191,12 +207,17 @@ export async function POST(request: Request) {
     let responseText: string;
     let action: string | undefined;
 
-    const tools: any = [{
-      functionDeclarations: [{
-        name: "take_picture",
-        description: "Call this tool if the user asks for a photo, to see something, or to describe their surroundings."
-      }]
-    }];
+    const tools: any = [
+      {
+        functionDeclarations: [
+          {
+            name: "take_picture",
+            description:
+              "Call this tool if the user asks for a photo, to see something, or to describe their surroundings.",
+          },
+        ],
+      },
+    ];
 
     try {
       const model = genAI.getGenerativeModel({
@@ -219,15 +240,15 @@ export async function POST(request: Request) {
       if (functionCalls && functionCalls.length > 0) {
         const call = functionCalls[0];
         if (call.name === "take_picture") {
-           action = "TAKE_PICTURE";
-           try {
-             responseText = response.text();
-             if (!responseText) responseText = "Sure! Get ready.";
-           } catch {
-             responseText = "Sure! Get ready.";
-           }
+          action = "TAKE_PICTURE";
+          try {
+            responseText = response.text();
+            if (!responseText) responseText = "Sure! Get ready.";
+          } catch {
+            responseText = "Sure! Get ready.";
+          }
         } else {
-           responseText = response.text() || "Sure.";
+          responseText = response.text() || "Sure.";
         }
       } else {
         responseText = response.text();
@@ -247,26 +268,30 @@ export async function POST(request: Request) {
       }
       proxyMessages.push({ role: "user", content: transcribedText });
 
-      const proxyResponse = await fetch("https://ai.hackclub.com/proxy/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.HACKCLUB_AI_API_KEY}`,
-          "Content-Type": "application/json",
+      const proxyResponse = await fetch(
+        "https://ai.hackclub.com/proxy/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.HACKCLUB_AI_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: proxyMessages,
+            tools: [
+              {
+                type: "function",
+                function: {
+                  name: "take_picture",
+                  description:
+                    "Call this tool if the user asks for a photo, to see something, or to describe their surroundings.",
+                },
+              },
+            ],
+          }),
         },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: proxyMessages,
-          tools: [
-            {
-              type: "function",
-              function: {
-                name: "take_picture",
-                description: "Call this tool if the user asks for a photo, to see something, or to describe their surroundings."
-              }
-            }
-          ]
-        })
-      });
+      );
 
       if (!proxyResponse.ok) {
         const errorText = await proxyResponse.text();
@@ -280,10 +305,10 @@ export async function POST(request: Request) {
       if (choice.message.tool_calls && choice.message.tool_calls.length > 0) {
         const toolCall = choice.message.tool_calls[0];
         if (toolCall.function.name === "take_picture") {
-            action = "TAKE_PICTURE";
-            responseText = choice.message.content || "Sure! Get ready.";
+          action = "TAKE_PICTURE";
+          responseText = choice.message.content || "Sure! Get ready.";
         } else {
-            responseText = choice.message.content || "Sure.";
+          responseText = choice.message.content || "Sure.";
         }
       } else {
         responseText = choice.message.content;
@@ -305,7 +330,10 @@ export async function POST(request: Request) {
       if (process.env.ELEVENLABS_API_KEY) {
         // ElevenLabs TTS (Turbo v2.5 for speed/efficiency)
         // Use user's preferred voice, or env default, or hardcoded fallback
-        const voiceId = profile?.elevenlabs_voice_id || process.env.ELEVENLABS_VOICE_ID || "cgSgspJ2msm6clMCkdW9"; 
+        const voiceId =
+          profile?.elevenlabs_voice_id ||
+          process.env.ELEVENLABS_VOICE_ID ||
+          "cgSgspJ2msm6clMCkdW9";
         const ttsResponse = await fetch(
           `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=pcm_16000`,
           {
@@ -318,19 +346,21 @@ export async function POST(request: Request) {
               text: responseText,
               model_id: "eleven_turbo_v2_5",
             }),
-          }
+          },
         );
 
         if (!ttsResponse.ok) {
-          throw new Error("ElevenLabs API failed: " + await ttsResponse.text());
+          throw new Error(
+            "ElevenLabs API failed: " + (await ttsResponse.text()),
+          );
         }
 
         // The arrayBuffer returned might need to be explicitly cast to ensure 16-bit Signed Integers.
         const rawArrayBuffer = await ttsResponse.arrayBuffer();
-        
+
         // Explicitly view the data as Int16 (Signed 16-bit Integers, Little Endian) to guarantee no floats
         const int16Data = new Int16Array(rawArrayBuffer);
-        
+
         // Convert the clean Int16 array back to an underlying Buffer for concatenation
         const pcmBuffer = Buffer.from(int16Data.buffer);
 
@@ -338,22 +368,25 @@ export async function POST(request: Request) {
         // We MUST prepend a standard 44-byte WAV header so ESP32 AudioGeneratorWAV can parse it.
         const dataLength = pcmBuffer.length;
         const wavHeader = Buffer.alloc(44);
-        
+
         const sampleRate = 16000;
         const numChannels = 1;
         const bitsPerSample = 16;
-        
+
         wavHeader.write("RIFF", 0);
         wavHeader.writeUInt32LE(36 + dataLength, 4);
         wavHeader.write("WAVE", 8);
         wavHeader.write("fmt ", 12);
         wavHeader.writeUInt32LE(16, 16); // Subchunk1Size
         wavHeader.writeUInt16LE(1, 20); // AudioFormat = 1 (PCM)
-        wavHeader.writeUInt16LE(numChannels, 22); 
-        wavHeader.writeUInt32LE(sampleRate, 24); 
-        wavHeader.writeUInt32LE(sampleRate * numChannels * (bitsPerSample / 8), 28); // ByteRate
+        wavHeader.writeUInt16LE(numChannels, 22);
+        wavHeader.writeUInt32LE(sampleRate, 24);
+        wavHeader.writeUInt32LE(
+          sampleRate * numChannels * (bitsPerSample / 8),
+          28,
+        ); // ByteRate
         wavHeader.writeUInt16LE(numChannels * (bitsPerSample / 8), 32); // BlockAlign
-        wavHeader.writeUInt16LE(bitsPerSample, 34); 
+        wavHeader.writeUInt16LE(bitsPerSample, 34);
         wavHeader.write("data", 36);
         wavHeader.writeUInt32LE(dataLength, 40);
 
@@ -377,25 +410,27 @@ export async function POST(request: Request) {
           .getPublicUrl(fileName);
 
         audioUrl = publicUrlData.publicUrl;
-
       } else if (process.env.OPENAI_API_KEY) {
         // OpenAI TTS
-        const ttsResponse = await fetch("https://api.openai.com/v1/audio/speech", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-            "Content-Type": "application/json",
+        const ttsResponse = await fetch(
+          "https://api.openai.com/v1/audio/speech",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "tts-1",
+              input: responseText,
+              voice: "alloy",
+              response_format: "wav",
+            }),
           },
-          body: JSON.stringify({
-            model: "tts-1",
-            input: responseText,
-            voice: "alloy",
-            response_format: "wav"
-          }),
-        });
+        );
 
         if (!ttsResponse.ok) {
-          throw new Error("OpenAI API failed: " + await ttsResponse.text());
+          throw new Error("OpenAI API failed: " + (await ttsResponse.text()));
         }
 
         const audioBuffer = await ttsResponse.arrayBuffer();
@@ -439,7 +474,7 @@ export async function POST(request: Request) {
     console.error("API Error:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

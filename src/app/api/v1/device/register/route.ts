@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     if (!device_id) {
       return NextResponse.json(
         { error: "Device ID is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
       // Device is valid but not linked to a user yet
       return NextResponse.json(
         { error: "Device not active or not linked to a user" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
     console.error("Register API Error:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

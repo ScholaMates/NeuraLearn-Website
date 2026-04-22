@@ -207,8 +207,13 @@ body {
 /* Theme-adaptive diagonal grid background - adapts automatically per palette */
 .page-grid-bg {
   background-image:
-    radial-gradient(circle at center center, transparent, color-mix(in srgb, var(--cat-base) 85%, transparent)),
-    repeating-linear-gradient(135deg,
+    radial-gradient(
+      circle at center center,
+      transparent,
+      color-mix(in srgb, var(--cat-base) 85%, transparent)
+    ),
+    repeating-linear-gradient(
+      135deg,
       color-mix(in srgb, var(--cat-base) 40%, transparent) 0px,
       color-mix(in srgb, var(--cat-base) 40%, transparent) 2px,
       transparent 2px,
@@ -218,7 +223,8 @@ body {
       transparent 11px,
       transparent 21px
     ),
-    repeating-linear-gradient(45deg,
+    repeating-linear-gradient(
+      45deg,
       color-mix(in srgb, var(--cat-surface0) 25%, transparent) 0px,
       color-mix(in srgb, var(--cat-surface0) 25%, transparent) 4px,
       transparent 4px,

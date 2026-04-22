@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
+/*>
+Handles POST requests to process and analyze raw image binary data via a vision AI model and persists the conversation to the database.
+*/
 export async function POST(request: Request) {
   try {
     // ── Native Binary Ingestion (Zero-Copy Architecture) ──────────────────────
@@ -16,10 +19,11 @@ export async function POST(request: Request) {
     const chatId = url.searchParams.get("chat_id") ?? null;
     const mimeType = request.headers.get("content-type") ?? "image/jpeg";
 
+    //> Ensures that both image data and user identifier are provided, failing early if either is missing
     if (!imageBytes.length || !userId) {
       return NextResponse.json(
         { error: "Image bytes and user_id are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -36,6 +40,7 @@ export async function POST(request: Request) {
         upsert: false,
       });
 
+    //> Throws an error to abort execution if uploading the image to Supabase storage fails
     if (uploadError) {
       throw new Error("Supabase Storage Error: " + uploadError.message);
     }
@@ -80,9 +85,10 @@ export async function POST(request: Request) {
           model: "google/gemini-2.5-flash",
           messages: proxyMessages,
         }),
-      }
+      },
     );
 
+    //> Checks if the proxy API generated an error, logs it, and halts the process by throwing an exception
     if (!proxyResponse.ok) {
       const errorText = await proxyResponse.text();
       console.error("Vision proxy failed:", errorText);
@@ -95,6 +101,7 @@ export async function POST(request: Request) {
     // ── Persist conversation to DB ─────────────────────────────────────────────
     let finalChatId = chatId;
 
+    //> Creates a new chat session in the database if an existing chat ID wasn't provided for this interaction
     if (!finalChatId) {
       const { data: newChat } = await supabase
         .from("chats")
@@ -104,6 +111,7 @@ export async function POST(request: Request) {
       if (newChat) finalChatId = newChat.id;
     }
 
+    //> If a valid chat ID exists, saves both the user's uploaded image URL and the vision model's response to the database messages table
     if (finalChatId) {
       await supabase.from("messages").insert({
         chat_id: finalChatId,
@@ -124,10 +132,11 @@ export async function POST(request: Request) {
       image_url: imageUrl,
     });
   } catch (error) {
+    //> Catches any internal or API errors that occurred during processing to ensure a graceful server error response is returned
     console.error("Vision API Error:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

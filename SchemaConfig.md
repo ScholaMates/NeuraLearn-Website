@@ -85,10 +85,10 @@ alter table public.profiles add column if not exists response_length text defaul
 alter table public.profiles add column if not exists academic_level text default 'undergraduate';
 alter table public.profiles add column if not exists major text;
 
--- Device ID 
-insert into device_ids (code) values 
+-- Device ID
+insert into device_ids (code) values
   ('DEVICE-0'), -- Examples
-  ('DEVICE-1'), 
+  ('DEVICE-1'),
   ('DEVICE-2')
 on conflict (code) do nothing;
 
@@ -109,3 +109,4 @@ alter table public.study_sessions enable row level security;
 create policy "Users can view own study sessions" on study_sessions for select using (auth.uid() = user_id);
 create policy "Users can insert own study sessions" on study_sessions for insert with check (auth.uid() = user_id);
 create policy "Users can update own study sessions" on study_sessions for update using (auth.uid() = user_id);
+```

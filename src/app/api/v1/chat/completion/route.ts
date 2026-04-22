@@ -7,6 +7,9 @@ import academicLevels from "@/config/academicLevels.json";
 
 const API = process.env.GEMINI_API_KEY!;
 
+/*>
+Processes chat completion requests by retrieving user profiles, optionally parsing function calls like taking pictures, and interacting with generative models.
+*/
 export async function POST(request: Request) {
   let chatId: string | undefined;
 
@@ -22,13 +25,15 @@ export async function POST(request: Request) {
     const { text, tutor_mode, user_id, chat_id: providedChatId } = body;
     chatId = providedChatId;
 
+    //> Halts the request if the text payload is missing, ensuring valid input
     if (!text) {
       return NextResponse.json({ error: "Text is required" }, { status: 400 });
     }
+    //> Checks for a user ID and returns a 400 error if missing, since it's required for user isolation
     if (!user_id) {
       return NextResponse.json(
         { error: "User ID is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -41,7 +46,7 @@ export async function POST(request: Request) {
     const { data: profile } = await supabase
       .from("profiles")
       .select(
-        "nickname, response_length, academic_level, major, about_me, custom_model, gemini_api_key, tutor_mode, elevenlabs_voice_id"
+        "nickname, response_length, academic_level, major, about_me, custom_model, gemini_api_key, tutor_mode, elevenlabs_voice_id",
       )
       .eq("id", user_id)
       .single();
@@ -56,6 +61,7 @@ export async function POST(request: Request) {
 
     // Fetch history if this is an existing chat
     let historyForGemini: { role: string; parts: { text: string }[] }[] = [];
+    //> Retrieves existing message history from the database if continuing a previous conversation
     if (providedChatId) {
       const { data: previousMessages } = await supabase
         .from("messages")
@@ -63,6 +69,7 @@ export async function POST(request: Request) {
         .eq("chat_id", providedChatId)
         .order("created_at", { ascending: true });
 
+      //> Iterates through past messages to format them correctly for the generative model's history tracking
       if (previousMessages) {
         historyForGemini = previousMessages.map((msg) => ({
           role: msg.role,
@@ -72,6 +79,7 @@ export async function POST(request: Request) {
     }
 
     // Create new chat if no ID provided
+    //> Determines if a new chat session needs to be created and uses AI to generate a descriptive title
     if (!chatId) {
       let title = text.substring(0, 30) + (text.length > 30 ? "..." : "");
 
@@ -79,7 +87,7 @@ export async function POST(request: Request) {
       try {
         const titleModel = genAI.getGenerativeModel({ model: modelName });
         const titleResult = await titleModel.generateContent(
-          `Generate a short, descriptive title (max 6 words) for this user query: "${text}". No quotes.`
+          `Generate a short, descriptive title (max 6 words) for this user query: "${text}". No quotes.`,
         );
         title = titleResult.response.text().trim();
       } catch (ignored) {}
@@ -97,7 +105,7 @@ export async function POST(request: Request) {
         console.error("Error creating chat:", chatError);
         return NextResponse.json(
           { error: "Failed to create chat session" },
-          { status: 500 }
+          { status: 500 },
         );
       }
       chatId = newChat.id;
@@ -113,6 +121,7 @@ export async function POST(request: Request) {
     let systemInstruction =
       "You are a helpful AI assistant. Use LaTeX for mathematical expressions. Wrap inline math in single dollar signs ($) and block math in double dollar signs ($$). Please use english unless asked in another language";
 
+    //> Applies custom user preferences like nickname and academic level to build a personalized system instruction
     if (profile) {
       const { nickname, response_length, academic_level, major, about_me } =
         profile;
@@ -126,7 +135,7 @@ export async function POST(request: Request) {
 
       if (major)
         parts.push(
-          `The user's major/field of study is ${major}. Use relevant analogies.`
+          `The user's major/field of study is ${major}. Use relevant analogies.`,
         );
       if (about_me) parts.push(`User info: ${about_me}`);
 
@@ -134,13 +143,14 @@ export async function POST(request: Request) {
       if (modeConfig) parts.push(modeConfig.prompt);
 
       const lengthConfig = responseLengths.find(
-        (l) => l.id === response_length
+        (l) => l.id === response_length,
       );
       if (lengthConfig) parts.push(lengthConfig.prompt);
 
       const levelConfig = academicLevels.find((l) => l.id === academic_level);
       if (levelConfig) parts.push(levelConfig.prompt);
 
+      //> Appends all accumulated personalization attributes to the primary instruction string
       if (parts.length > 0) {
         systemInstruction += " " + parts.join(" ");
       }
@@ -149,12 +159,17 @@ export async function POST(request: Request) {
     let responseText: string;
     let action: string | undefined;
 
-    const tools: any = [{
-      functionDeclarations: [{
-        name: "take_picture",
-        description: "Call this tool if the user asks for a photo, to see something, or to describe their surroundings."
-      }]
-    }];
+    const tools: any = [
+      {
+        functionDeclarations: [
+          {
+            name: "take_picture",
+            description:
+              "Call this tool if the user asks for a photo, to see something, or to describe their surroundings.",
+          },
+        ],
+      },
+    ];
 
     try {
       const model = genAI.getGenerativeModel({
@@ -172,25 +187,27 @@ export async function POST(request: Request) {
 
       const result = await chat.sendMessage(text);
       const response = result.response;
-      
+
       const functionCalls = response.functionCalls();
+      //> Checks if the primary model decided to invoke a tool, such as taking a picture, and handles the action payload
       if (functionCalls && functionCalls.length > 0) {
         const call = functionCalls[0];
         if (call.name === "take_picture") {
-           action = "TAKE_PICTURE";
-           try {
-             responseText = response.text();
-             if (!responseText) responseText = "Sure! Get ready.";
-           } catch {
-             responseText = "Sure! Get ready.";
-           }
+          action = "TAKE_PICTURE";
+          try {
+            responseText = response.text();
+            if (!responseText) responseText = "Sure! Get ready.";
+          } catch {
+            responseText = "Sure! Get ready.";
+          }
         } else {
-           responseText = response.text() || "Sure.";
+          responseText = response.text() || "Sure.";
         }
       } else {
         responseText = response.text();
       }
     } catch (geminiError) {
+      //> Acts as a fallback mechanism, redirecting the chat completion to an alternate proxy API if the primary model fails
       console.warn("Gemini API failed, falling back to proxy:", geminiError);
 
       const proxyMessages = [];
@@ -205,27 +222,32 @@ export async function POST(request: Request) {
       }
       proxyMessages.push({ role: "user", content: text });
 
-      const proxyResponse = await fetch("https://ai.hackclub.com/proxy/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.HACKCLUB_AI_API_KEY}`,
-          "Content-Type": "application/json",
+      const proxyResponse = await fetch(
+        "https://ai.hackclub.com/proxy/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.HACKCLUB_AI_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: proxyMessages,
+            tools: [
+              {
+                type: "function",
+                function: {
+                  name: "take_picture",
+                  description:
+                    "Call this tool if the user asks for a photo, to see something, or to describe their surroundings.",
+                },
+              },
+            ],
+          }),
         },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: proxyMessages,
-          tools: [
-            {
-              type: "function",
-              function: {
-                name: "take_picture",
-                description: "Call this tool if the user asks for a photo, to see something, or to describe their surroundings."
-              }
-            }
-          ]
-        })
-      });
+      );
 
+      //> Ensures the fallback request was successful, throwing an error if the secondary method also fails
       if (!proxyResponse.ok) {
         const errorText = await proxyResponse.text();
         console.error("Proxy fallback failed:", errorText);
@@ -234,14 +256,15 @@ export async function POST(request: Request) {
 
       const proxyData = await proxyResponse.json();
       const choice = proxyData.choices[0];
-      
+
+      //> Inspects the fallback response for any requested tool calls and sets up the action response accordingly
       if (choice.message.tool_calls && choice.message.tool_calls.length > 0) {
         const toolCall = choice.message.tool_calls[0];
         if (toolCall.function.name === "take_picture") {
-            action = "TAKE_PICTURE";
-            responseText = choice.message.content || "Sure! Get ready.";
+          action = "TAKE_PICTURE";
+          responseText = choice.message.content || "Sure! Get ready.";
         } else {
-            responseText = choice.message.content || "Sure.";
+          responseText = choice.message.content || "Sure.";
         }
       } else {
         responseText = choice.message.content;
@@ -262,10 +285,11 @@ export async function POST(request: Request) {
       ...(action ? { action } : {}),
     });
   } catch (error) {
+    //> Handles any unexpected errors during the API process to return a safe internal server error response
     console.error("API Error:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

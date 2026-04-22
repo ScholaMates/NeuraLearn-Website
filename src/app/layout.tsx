@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
-import { Analytics } from "@vercel/analytics/next"
+import { Analytics } from "@vercel/analytics/next";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   description: "Your intelligent AI assistant",
 };
 
-import { Toaster } from 'sonner';
+import { Toaster } from "sonner";
 
 import ProfileGuard from "@/components/ProfileGuard";
 import ThemeInit from "@/components/ThemeInit";

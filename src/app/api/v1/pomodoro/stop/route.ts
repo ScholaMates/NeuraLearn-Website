@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     if (!session_id) {
       return NextResponse.json(
         { error: "Session ID is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
       console.error("Pomodoro Stop Error:", error);
       return NextResponse.json(
         { error: "Failed to stop session" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json(
       { error: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

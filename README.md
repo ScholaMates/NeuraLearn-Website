@@ -48,17 +48,17 @@ bun install
 This project uses environment variables for configuration.
 
 1.  Create a `.env` file in the root directory by copying the example file:
+
     ```bash
     cp .env.example .env
     ```
 
 2.  Open the `.env` file and populate it with your specific keys:
-
-    -   `GEMINI_API_KEY`: Your Google Gemini API key.
-    -   `GEMINI_AI_MODEL`: The model version to use (e.g., gemini-3-flash-preview).
-    -   `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase Project URL.
-    -   `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase Project API Anon/Public Key.
-    -   `SUPABASE_SERVICE_ROLE_KEY`: Your Supabase Service Role Key (Required for admin tasks, keep this secret).
+    - `GEMINI_API_KEY`: Your Google Gemini API key.
+    - `GEMINI_AI_MODEL`: The model version to use (e.g., gemini-3-flash-preview).
+    - `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase Project URL.
+    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase Project API Anon/Public Key.
+    - `SUPABASE_SERVICE_ROLE_KEY`: Your Supabase Service Role Key (Required for admin tasks, keep this secret).
 
 ### 4. Database Setup
 
@@ -82,12 +82,12 @@ The application will be available at `http://localhost:3000`.
 
 ## Technologies Used
 
--   **Framework**: Next.js 16, React 19, React DOM 19
--   **Database & Auth**: Supabase (@supabase/supabase-js, @supabase/ssr)
--   **AI**: Google Generative AI SDK (@google/generative-ai)
--   **Styling**: Tailwind CSS
--   **Markdown & Math**: react-markdown, KaTeX, remark-math, rehype-katex
--   **Animations**: Anime.js
--   **Icons**: Lucide React
--   **UI Components**: Sonner (Toast notifications)
--   **Utilities**: dotenv
+- **Framework**: Next.js 16, React 19, React DOM 19
+- **Database & Auth**: Supabase (@supabase/supabase-js, @supabase/ssr)
+- **AI**: Google Generative AI SDK (@google/generative-ai)
+- **Styling**: Tailwind CSS
+- **Markdown & Math**: react-markdown, KaTeX, remark-math, rehype-katex
+- **Animations**: Anime.js
+- **Icons**: Lucide React
+- **UI Components**: Sonner (Toast notifications)
+- **Utilities**: dotenv

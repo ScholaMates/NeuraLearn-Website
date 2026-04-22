@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     if (!user_id) {
       return NextResponse.json(
         { error: "User ID is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
       console.error("Pomodoro Start Error:", error);
       return NextResponse.json(
         { error: "Failed to start session" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json(
       { error: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
