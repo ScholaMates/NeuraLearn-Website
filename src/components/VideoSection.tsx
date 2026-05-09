@@ -9,7 +9,7 @@ export default function VideoSection() {
           <div className="aspect-video w-full bg-mocha-crust">
             <iframe
               className="w-full h-full"
-              src="https://www.youtube.com/embed/dQw4w9WgXcQ?si=ScZ_5s0i7f0_8q9_"
+              src="https://youtu.be/518V7QLLXm0?si=GZj-6qMKS06rifGo"
               title="NeuraLearn Demo"
               style={{ border: 0 }}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
