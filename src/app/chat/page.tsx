@@ -601,6 +601,13 @@ export default function ChatPage() {
                                 </code>
                               );
                             },
+                            img: ({ node, ...props }) => (
+                              <img 
+                                className="max-w-full sm:max-w-md rounded-lg my-3 border border-mocha-surface1 object-cover" 
+                                alt={props.alt || "Uploaded image"}
+                                {...props} 
+                              />
+                            ),
                           }}
                         >
                           {msg.text}

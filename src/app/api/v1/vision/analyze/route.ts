@@ -116,7 +116,7 @@ export async function POST(request: Request) {
       await supabase.from("messages").insert({
         chat_id: finalChatId,
         role: "user",
-        content: `[Image Uploaded] ${imageUrl}`,
+        content: `![Uploaded Image](${imageUrl})`,
       });
 
       await supabase.from("messages").insert({
