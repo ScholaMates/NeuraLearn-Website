@@ -58,7 +58,8 @@ export async function POST(request: Request) {
     const dataUri = `data:${mimeType};base64,${base64Image}`;
 
     const prompt =
-      "Analyze this image and explain the academic concept or solve the problem shown. Be helpful and clear.";
+      "Analyze this image and explain the academic concept or solve the problem shown. Be helpful and clear. Please use english unless asked in another language, CRITICAL: Never speak more than 3 sentences. Keep responses brief, As vercel will cut off the connection if its too long" +
+      "If the image contains handwritten text, transcribe it. If it contains a math problem, solve it step by step. If it contains a diagram, describe its components and relationships. Focus on educational content and be concise, You can add on a sentence at the end saying to ask them if they want you to continue explaining the next part'";
 
     const proxyMessages = [
       {
