@@ -13,10 +13,10 @@ export async function POST(request: Request) {
     const arrayBuffer = await request.arrayBuffer();
     const imageBytes = Buffer.from(arrayBuffer);
 
-    // Read metadata from query string (ESP32 passes these as URL params)
+    // Read metadata from headers or query string (ESP32 passes these as URL params or headers)
     const url = new URL(request.url);
-    const userId = url.searchParams.get("user_id");
-    const chatId = url.searchParams.get("chat_id") ?? null;
+    const userId = request.headers.get("x-user-id") || url.searchParams.get("user_id");
+    const chatId = request.headers.get("x-chat-id") || url.searchParams.get("chat_id") || null;
     const mimeType = request.headers.get("content-type") ?? "image/jpeg";
 
     //> Ensures that both image data and user identifier are provided, failing early if either is missing
