@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import tutorModes from "@/config/tutorModes.json";
 import responseLengths from "@/config/responseLengths.json";
 import academicLevels from "@/config/academicLevels.json";
@@ -14,13 +15,17 @@ export async function POST(request: Request) {
   let chatId: string | undefined;
 
   try {
-    const body = await request.json();
-    const { message, chatId: providedChatId, skipUserSave } = body;
-    chatId = providedChatId;
+    const formData = await request.formData();
+    const message = formData.get("message") as string;
+    const providedChatId = formData.get("chatId") as string | null;
+    const skipUserSave = formData.get("skipUserSave") === "true";
+    const file = formData.get("file") as File | null;
+    
+    chatId = providedChatId || undefined;
 
     //> Validates that the message content exists, returning a Bad Request error if missing
-    if (!message) {
-      return new Response(JSON.stringify({ error: "Message is required" }), {
+    if (!message && !file) {
+      return new Response(JSON.stringify({ error: "Message or file is required" }), {
         status: 400,
       });
     }
@@ -51,6 +56,42 @@ export async function POST(request: Request) {
 
     const genAI = new GoogleGenerativeAI(apiKey);
 
+    let finalMessageContent = message || "";
+    let base64Image: string | null = null;
+    let mimeType: string | null = null;
+
+    if (file) {
+      const arrayBuffer = await file.arrayBuffer();
+      const imageBytes = Buffer.from(arrayBuffer);
+      mimeType = file.type || "image/jpeg";
+      base64Image = imageBytes.toString("base64");
+      
+      const ext = mimeType.split("/")[1]?.split(";")[0] ?? "jpg";
+      const fileName = `${user.id}-${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabaseAdmin.storage
+        .from("chat-images")
+        .upload(fileName, imageBytes, {
+          contentType: mimeType,
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error("Image upload failed:", uploadError);
+        return new Response(JSON.stringify({ error: "Failed to upload image" }), {
+          status: 500,
+        });
+      }
+
+      const { data: publicUrlData } = supabaseAdmin.storage
+        .from("chat-images")
+        .getPublicUrl(fileName);
+
+      finalMessageContent = finalMessageContent
+        ? `${finalMessageContent}\n\n![Attached Image](${publicUrlData.publicUrl})`
+        : `![Attached Image](${publicUrlData.publicUrl})`;
+    }
+
     // Fetch history if this is an existing chat
     let historyForGemini: { role: string; parts: { text: string }[] }[] = [];
     //> Retrieves prior messages from the database to build the conversation history context for the generative model
@@ -68,7 +109,7 @@ export async function POST(request: Request) {
         //> If skipUserSave is enabled and history exists, removes the current message from history to prevent context duplication
         if (skipUserSave && msgs.length > 0) {
           const lastMsg = msgs[msgs.length - 1];
-          if (lastMsg.role === "user" && lastMsg.content === message) {
+          if (lastMsg.role === "user" && lastMsg.content === finalMessageContent) {
             msgs = msgs.slice(0, -1);
           }
         }
@@ -155,7 +196,7 @@ export async function POST(request: Request) {
         .insert({
           chat_id: chatId,
           role: "user",
-          content: message,
+          content: finalMessageContent,
         })
         .select()
         .single();
@@ -228,8 +269,18 @@ export async function POST(request: Request) {
         },
       });
 
+      const msgParts: any[] = [{ text: message || "Describe this image." }];
+      if (base64Image && mimeType) {
+        msgParts.push({
+          inlineData: {
+            data: base64Image,
+            mimeType: mimeType,
+          },
+        });
+      }
+
       //> Tries to process the conversation message stream using the primary generative AI model
-      geminiResult = await chat.sendMessageStream(message);
+      geminiResult = await chat.sendMessageStream(msgParts);
     } catch (geminiInitError) {
       //> Catches initialization issues with the primary model and sets a flag to trigger the fallback proxy
       console.warn(
@@ -283,7 +334,15 @@ export async function POST(request: Request) {
           content: msg.parts[0].text,
         });
       }
-      proxyMessages.push({ role: "user", content: message });
+      
+      const proxyContent: any = base64Image && mimeType
+        ? [
+            { type: "text", text: message || "Describe this image." },
+            { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64Image}` } }
+          ]
+        : message || "";
+        
+      proxyMessages.push({ role: "user", content: proxyContent });
 
       const proxyResponse = await fetch(
         "https://ai.hackclub.com/proxy/v1/chat/completions",

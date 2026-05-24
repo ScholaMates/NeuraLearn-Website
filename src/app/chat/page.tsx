@@ -19,6 +19,7 @@ import {
   Pencil,
   X,
   Check,
+  Paperclip,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
@@ -51,6 +52,9 @@ export default function ChatPage() {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editInput, setEditInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
   const supabase = createClient();
 
   // Responsive sidebar init
@@ -159,6 +163,21 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      const url = URL.createObjectURL(file);
+      setFilePreview(url);
+    }
+  };
+
+  const clearFile = () => {
+    setSelectedFile(null);
+    setFilePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   // Scroll effect (keep existing)
   useEffect(() => {
     scrollToBottom();
@@ -168,19 +187,19 @@ export default function ChatPage() {
     messageText: string,
     chatId: string | null,
     skipUserSave: boolean = false,
+    file?: File | null,
   ) => {
     setLoading(true);
     try {
+      const formData = new FormData();
+      formData.append("message", messageText);
+      if (chatId) formData.append("chatId", chatId);
+      formData.append("skipUserSave", skipUserSave.toString());
+      if (file) formData.append("file", file);
+
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          message: messageText,
-          chatId: chatId,
-          skipUserSave,
-        }),
+        body: formData,
       });
 
       // Handle new chat creation via header
@@ -250,14 +269,23 @@ export default function ChatPage() {
   };
 
   const handleSend = async () => {
-    if (!input.trim() || loading) return;
+    if ((!input.trim() && !selectedFile) || loading) return;
 
-    const userMessage: Message = { role: "user", text: input };
+    let displayMessage = input;
+    if (filePreview) {
+       displayMessage = displayMessage ? `${displayMessage}\n\n![Attached Image](${filePreview})` : `![Attached Image](${filePreview})`;
+    }
+
+    const userMessage: Message = { role: "user", text: displayMessage };
     setMessages((prev) => [...prev, userMessage]);
+    
     const currentInput = input;
+    const currentFile = selectedFile;
+    
     setInput("");
+    clearFile();
 
-    await triggerGemini(currentInput, currentChatId);
+    await triggerGemini(currentInput, currentChatId, false, currentFile);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -655,7 +683,32 @@ export default function ChatPage() {
         {/* Input Area */}
         <div className="border-t border-mocha-surface0 bg-mocha-base p-4">
           <div className="mx-auto max-w-3xl">
+            {filePreview && (
+              <div className="mb-2 flex items-center gap-2 bg-mocha-surface0 p-2 rounded-lg border border-mocha-surface1 w-fit relative">
+                <img src={filePreview} alt="Preview" className="h-16 w-16 object-cover rounded" />
+                <button
+                  onClick={clearFile}
+                  className="absolute -top-2 -right-2 bg-mocha-surface2 text-mocha-text rounded-full p-1 hover:bg-mocha-red hover:text-mocha-base transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
             <div className="relative flex items-end rounded-xl bg-mocha-surface0 ring-1 ring-inset ring-mocha-surface1 focus-within:ring-2 focus-within:ring-mocha-mauve">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="mb-2 ml-2 p-2 text-mocha-overlay0 hover:text-mocha-mauve transition-colors"
+                title="Attach image"
+              >
+                <Paperclip size={20} />
+              </button>
+              <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                className="hidden"
+              />
               <textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -667,7 +720,7 @@ export default function ChatPage() {
               />
               <button
                 onClick={handleSend}
-                disabled={!input.trim() || loading}
+                disabled={(!input.trim() && !selectedFile) || loading}
                 className="absolute right-2 bottom-2 rounded-lg p-2 text-mocha-subtext0 hover:bg-mocha-surface1 hover:text-mocha-mauve disabled:opacity-50 disabled:hover:bg-transparent"
               >
                 <Send size={20} />
