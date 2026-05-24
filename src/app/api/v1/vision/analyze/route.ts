@@ -127,10 +127,139 @@ export async function POST(request: Request) {
       });
     }
 
+    let audioUrl: string | null = null;
+
+    // --- TTS PIPELINE ---
+    try {
+      if (process.env.ELEVENLABS_API_KEY) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("elevenlabs_voice_id")
+          .eq("id", userId)
+          .single();
+
+        const voiceId =
+          profile?.elevenlabs_voice_id ||
+          process.env.ELEVENLABS_VOICE_ID ||
+          "cgSgspJ2msm6clMCkdW9";
+
+        const ttsResponse = await fetch(
+          `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=pcm_16000`,
+          {
+            method: "POST",
+            headers: {
+              "xi-api-key": process.env.ELEVENLABS_API_KEY,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              text: responseText,
+              model_id: "eleven_turbo_v2_5",
+            }),
+          },
+        );
+
+        if (!ttsResponse.ok) {
+          throw new Error(
+            "ElevenLabs API failed: " + (await ttsResponse.text()),
+          );
+        }
+
+        const rawArrayBuffer = await ttsResponse.arrayBuffer();
+        const int16Data = new Int16Array(rawArrayBuffer);
+        const pcmBuffer = Buffer.from(int16Data.buffer);
+
+        const dataLength = pcmBuffer.length;
+        const wavHeader = Buffer.alloc(44);
+        const sampleRate = 16000;
+        const numChannels = 1;
+        const bitsPerSample = 16;
+
+        wavHeader.write("RIFF", 0);
+        wavHeader.writeUInt32LE(36 + dataLength, 4);
+        wavHeader.write("WAVE", 8);
+        wavHeader.write("fmt ", 12);
+        wavHeader.writeUInt32LE(16, 16);
+        wavHeader.writeUInt16LE(1, 20);
+        wavHeader.writeUInt16LE(numChannels, 22);
+        wavHeader.writeUInt32LE(sampleRate, 24);
+        wavHeader.writeUInt32LE(
+          sampleRate * numChannels * (bitsPerSample / 8),
+          28,
+        );
+        wavHeader.writeUInt16LE(numChannels * (bitsPerSample / 8), 32);
+        wavHeader.writeUInt16LE(bitsPerSample, 34);
+        wavHeader.write("data", 36);
+        wavHeader.writeUInt32LE(dataLength, 40);
+
+        const finalAudioBuffer = Buffer.concat([wavHeader, pcmBuffer]);
+
+        const fileName = `${userId}-${Date.now()}.wav`;
+        const { data, error } = await supabase.storage
+          .from("audio-responses")
+          .upload(fileName, finalAudioBuffer, {
+            contentType: "audio/wav",
+            upsert: false,
+          });
+
+        if (error) throw new Error("Supabase Storage Error: " + error.message);
+
+        const { data: publicUrlData } = supabase.storage
+          .from("audio-responses")
+          .getPublicUrl(fileName);
+
+        audioUrl = publicUrlData.publicUrl;
+      } else if (process.env.OPENAI_API_KEY) {
+        const ttsResponse = await fetch(
+          "https://api.openai.com/v1/audio/speech",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "tts-1",
+              input: responseText,
+              voice: "alloy",
+              response_format: "wav",
+            }),
+          },
+        );
+
+        if (!ttsResponse.ok) {
+          throw new Error("OpenAI API failed: " + (await ttsResponse.text()));
+        }
+
+        const audioBuffer = await ttsResponse.arrayBuffer();
+        const audioBufferNode = Buffer.from(audioBuffer);
+
+        const fileName = `${userId}-${Date.now()}.wav`;
+        const { data, error } = await supabase.storage
+          .from("audio-responses")
+          .upload(fileName, audioBufferNode, {
+            contentType: "audio/wav",
+            upsert: false,
+          });
+
+        if (error) throw new Error("Supabase Storage Error: " + error.message);
+
+        const { data: publicUrlData } = supabase.storage
+          .from("audio-responses")
+          .getPublicUrl(fileName);
+
+        audioUrl = publicUrlData.publicUrl;
+      } else {
+        console.warn("No TTS API key configured. Skipping TTS generation.");
+      }
+    } catch (ttsError) {
+      console.error("TTS or Upload pipeline failed:", ttsError);
+    }
+
     return NextResponse.json({
       text: responseText,
       chat_id: finalChatId,
       image_url: imageUrl,
+      audio_url: audioUrl,
     });
   } catch (error) {
     //> Catches any internal or API errors that occurred during processing to ensure a graceful server error response is returned
