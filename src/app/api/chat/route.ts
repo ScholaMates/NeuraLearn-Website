@@ -1,11 +1,8 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createClient } from '@/lib/supabase/server';
 import tutorModes from '@/config/tutorModes.json';
 import responseLengths from '@/config/responseLengths.json';
 import academicLevels from '@/config/academicLevels.json';
-
-const API = process.env.GEMINI_API_KEY!;
 
 export async function POST(request: Request) {
     let chatId: string | undefined;
@@ -18,8 +15,8 @@ export async function POST(request: Request) {
         const skipUserSave = formData.get("skipUserSave") === "true";
         const file = formData.get("file") as File | null;
 
-        if (!message) {
-            return new Response(JSON.stringify({ error: 'Message is required' }), { status: 400 });
+        if (!message && !file) {
+            return new Response(JSON.stringify({ error: 'Message or file is required' }), { status: 400 });
         }
 
         const supabase = await createClient();
@@ -32,17 +29,17 @@ export async function POST(request: Request) {
         // Fetch user profile for personalization EARLY to use custom keys/models
         const { data: profile } = await supabase
             .from('profiles')
-            .select('nickname, tutor_mode, response_length, academic_level, major, about_me, custom_model, gemini_api_key')
+            .select('nickname, tutor_mode, response_length, academic_level, major, about_me, custom_model')
             .eq('id', user.id)
             .single();
 
-        const apiKey = profile?.gemini_api_key || process.env.GEMINI_API_KEY!;
-        const modelName = profile?.custom_model || process.env.GEMINI_AI_MODEL || "gemini-1.5-flash";
-
-        const genAI = new GoogleGenerativeAI(apiKey);
+        let modelName = profile?.custom_model || process.env.GEMINI_AI_MODEL || "google/gemini-2.5-flash";
+        if (!modelName.includes('/')) {
+            modelName = `google/${modelName}`;
+        }
 
         // Fetch history if this is an existing chat
-        let historyForGemini: { role: string; parts: { text: string }[] }[] = [];
+        let validHistory: any[] = [];
         if (providedChatId) {
             const { data: previousMessages } = await supabase
                 .from('messages')
@@ -52,8 +49,6 @@ export async function POST(request: Request) {
 
             if (previousMessages) {
                 let msgs = previousMessages;
-                // If we are skipping user save, it means the message is already in DB (as the last message).
-                // We need to remove it from history so we don't duplicate it in the prompt context.
                 if (skipUserSave && msgs.length > 0) {
                     const lastMsg = msgs[msgs.length - 1];
                     if (lastMsg.role === 'user' && lastMsg.content === message) {
@@ -61,8 +56,7 @@ export async function POST(request: Request) {
                     }
                 }
 
-                // Clean history to ensure strict user -> model alternation (required by Gemini)
-                const validHistory = [];
+                // Clean history to ensure strict user -> model alternation (if still needed, though OpenRouter is more forgiving)
                 for (const msg of msgs) {
                     if (validHistory.length === 0) {
                         if (msg.role === 'user') validHistory.push(msg);
@@ -71,53 +65,36 @@ export async function POST(request: Request) {
                         if (last.role !== msg.role) {
                             validHistory.push(msg);
                         } else {
-                            // Replace consecutive same-role message with the latest one
                             validHistory[validHistory.length - 1] = msg;
                         }
                     }
                 }
                 
-                // If the history ends with a user message, remove it, because the CURRENT message will be the user message
                 if (validHistory.length > 0 && validHistory[validHistory.length - 1].role === 'user') {
                     validHistory.pop();
                 }
-
-                historyForGemini = validHistory.map(msg => ({
-                    role: msg.role,
-                    parts: [{ text: msg.content || " " }],
-                }));
             }
         }
 
         // Create new chat if no ID provided
         if (!chatId) {
-            let title = message.substring(0, 30) + (message.length > 30 ? '...' : '');
+            let title = message ? message.substring(0, 30) + (message.length > 30 ? '...' : '') : 'Image upload';
 
             try {
-                // Generate a short title using Gemini 
-                const titleModel = genAI.getGenerativeModel({ model: modelName });
-                const titleResult = await titleModel.generateContent(`Generate a short, descriptive, and engaging title (max 6 words) for a conversation starting with this message. It should capture the essence of the user's intent. Do not use quotes: ${message}`);
-                const titleResponse = await titleResult.response;
-                title = titleResponse.text().trim();
-            } catch (err) {
-                console.error('Failed to generate title with Gemini, trying fallback:', err);
-                // Fallback to hackclub proxy for title generation
-                try {
-                    const proxyRes = await fetch('https://ai.hackclub.com/proxy/v1/chat/completions', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.HACKCLUB_AI_API_KEY}` },
-                        body: JSON.stringify({
-                            model: "google/gemini-2.5-flash",
-                            messages: [{ role: 'user', content: `Generate a short, descriptive, and engaging title (max 6 words) for a conversation starting with this message. It should capture the essence of the user's intent. Do not use quotes: ${message}` }]
-                        })
-                    });
-                    if (proxyRes.ok) {
-                        const proxyData = await proxyRes.json();
-                        title = proxyData.choices?.[0]?.message?.content?.trim() || title;
-                    }
-                } catch (fallbackErr) {
-                    console.error('Fallback title generation also failed:', fallbackErr);
+                const proxyRes = await fetch('https://ai.hackclub.com/proxy/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.HACKCLUB_AI_API_KEY}` },
+                    body: JSON.stringify({
+                        model: "google/gemini-2.5-flash",
+                        messages: [{ role: 'user', content: `Generate a short, descriptive, and engaging title (max 6 words) for a conversation starting with this message. It should capture the essence of the user's intent. Do not use quotes: ${message || "an image"}` }]
+                    })
+                });
+                if (proxyRes.ok) {
+                    const proxyData = await proxyRes.json();
+                    title = proxyData.choices?.[0]?.message?.content?.trim() || title;
                 }
+            } catch (err) {
+                console.error('Failed to generate title with proxy:', err);
             }
 
             const { data: newChat, error: chatError } = await supabase
@@ -144,7 +121,7 @@ export async function POST(request: Request) {
                 .insert({
                     chat_id: chatId,
                     role: 'user',
-                    content: message,
+                    content: message || "[Image attached]",
                 })
                 .select()
                 .single();
@@ -160,22 +137,15 @@ export async function POST(request: Request) {
 
         if (profile) {
             const { nickname, tutor_mode, response_length, academic_level, major, about_me } = profile;
-
             const parts = [];
-
             if (nickname) parts.push(`The user's nickname is ${nickname}.`);
-
-            // Apply Context from Profile
             if (major) parts.push(`The user's major/field of study is ${major}. Use relevant analogies.`);
             if (about_me) parts.push(`User info: ${about_me}`);
 
-            // Apply Configuration Lookups
             const modeConfig = tutorModes.find(m => m.id === tutor_mode);
             if (modeConfig) parts.push(modeConfig.prompt);
-
             const lengthConfig = responseLengths.find(l => l.id === response_length);
             if (lengthConfig) parts.push(lengthConfig.prompt);
-
             const levelConfig = academicLevels.find(l => l.id === academic_level);
             if (levelConfig) parts.push(levelConfig.prompt);
 
@@ -184,218 +154,93 @@ export async function POST(request: Request) {
             }
         }
 
-        const encoder = new TextEncoder();
-        let stream: ReadableStream;
+        const proxyMessages: any[] = [];
+        if (systemInstruction) {
+            proxyMessages.push({ role: 'system', content: systemInstruction });
+        }
+        for (const msg of validHistory) {
+            proxyMessages.push({
+                role: msg.role === 'model' ? 'assistant' : 'user',
+                content: msg.content || " ",
+            });
+        }
 
-        let geminiResult: any = null;
-        let useProxy = false;
+        let finalMessageContent: any = message || " ";
+        if (file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+            const base64Data = buffer.toString('base64');
+            finalMessageContent = [
+                { type: "text", text: message || " " },
+                { type: "image_url", image_url: { url: `data:${file.type};base64,${base64Data}` } }
+            ];
+        }
 
-        try {
-            const model = genAI.getGenerativeModel({
+        proxyMessages.push({ role: 'user', content: finalMessageContent });
+
+        const proxyResponse = await fetch('https://ai.hackclub.com/proxy/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.HACKCLUB_AI_API_KEY}` },
+            body: JSON.stringify({
                 model: modelName,
-                systemInstruction: systemInstruction
-            });
+                messages: proxyMessages,
+                stream: true,
+            })
+        });
 
-            const chat = model.startChat({
-                history: historyForGemini,
-                generationConfig: {
-                    maxOutputTokens: 2000,
-                },
-            });
-
-            let messageContent: any = message;
-            if (file) {
-                const arrayBuffer = await file.arrayBuffer();
-                const buffer = Buffer.from(arrayBuffer);
-                const base64Data = buffer.toString('base64');
-                messageContent = [
-                    message,
-                    {
-                        inlineData: {
-                            data: base64Data,
-                            mimeType: file.type
-                        }
-                    }
-                ];
-            }
-
-            geminiResult = await chat.sendMessageStream(messageContent);
-        } catch (geminiInitError) {
-            console.warn('Gemini API failed, falling back to hackclub proxy:', geminiInitError);
-            useProxy = true;
+        if (!proxyResponse.ok || !proxyResponse.body) {
+            const errText = await proxyResponse.text().catch(() => 'unknown');
+            console.error('Proxy failed:', errText);
+            throw new Error(`Proxy error: ${errText}`);
         }
 
-        if (!useProxy && geminiResult) {
-            stream = new ReadableStream({
-                async start(controller) {
-                    let fullText = '';
-                    try {
-                        for await (const chunk of geminiResult.stream) {
-                            const chunkText = chunk.text();
-                            fullText += chunkText;
-                            controller.enqueue(encoder.encode(chunkText));
-                        }
-
-                        // Save Model Message to DB
-                        await supabase
-                            .from('messages')
-                            .insert({
-                                chat_id: chatId,
-                                role: 'model',
-                                content: fullText,
-                            });
-
-                        controller.close();
-                    } catch (streamError) {
-                        console.warn('Gemini streaming error, attempting proxy fallback:', streamError);
-                        if (fullText === '') {
+        const encoder = new TextEncoder();
+        const proxyBody = proxyResponse.body;
+        const stream = new ReadableStream({
+            async start(controller) {
+                let fullText = '';
+                const reader = proxyBody.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                try {
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop() ?? '';
+                        for (const line of lines) {
+                            const trimmed = line.trim();
+                            if (!trimmed.startsWith('data:')) continue;
+                            const data = trimmed.slice(5).trim();
+                            if (data === '[DONE]') continue;
                             try {
-                                const proxyMessages: { role: string; content: string }[] = [];
-                                if (systemInstruction) {
-                                    proxyMessages.push({ role: 'system', content: systemInstruction });
+                                const parsed = JSON.parse(data);
+                                const delta = parsed.choices?.[0]?.delta?.content;
+                                if (delta) {
+                                    fullText += delta;
+                                    controller.enqueue(encoder.encode(delta));
                                 }
-                                for (const msg of historyForGemini) {
-                                    proxyMessages.push({
-                                        role: msg.role === 'model' ? 'assistant' : 'user',
-                                        content: msg.parts[0].text,
-                                    });
-                                }
-                                proxyMessages.push({ role: 'user', content: message });
-
-                                const proxyResponse = await fetch('https://ai.hackclub.com/proxy/v1/chat/completions', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.HACKCLUB_AI_API_KEY}` },
-                                    body: JSON.stringify({
-                                        model: "google/gemini-2.5-flash",
-                                        messages: proxyMessages,
-                                        stream: true,
-                                    })
-                                });
-
-                                if (proxyResponse.ok && proxyResponse.body) {
-                                    const reader = proxyResponse.body.getReader();
-                                    const decoder = new TextDecoder();
-                                    let buffer = '';
-                                    while (true) {
-                                        const { done, value } = await reader.read();
-                                        if (done) break;
-                                        buffer += decoder.decode(value, { stream: true });
-                                        const lines = buffer.split('\n');
-                                        buffer = lines.pop() ?? '';
-                                        for (const line of lines) {
-                                            const trimmed = line.trim();
-                                            if (!trimmed.startsWith('data:')) continue;
-                                            const data = trimmed.slice(5).trim();
-                                            if (data === '[DONE]') continue;
-                                            try {
-                                                const parsed = JSON.parse(data);
-                                                const delta = parsed.choices?.[0]?.delta?.content;
-                                                if (delta) {
-                                                    fullText += delta;
-                                                    controller.enqueue(encoder.encode(delta));
-                                                }
-                                            } catch { /* ignore malformed SSE lines */ }
-                                        }
-                                    }
-                                    
-                                    await supabase.from('messages').insert({
-                                        chat_id: chatId,
-                                        role: 'model',
-                                        content: fullText,
-                                    });
-                                    
-                                    controller.close();
-                                    return;
-                                } else {
-                                    throw new Error('Proxy fallback also failed');
-                                }
-                            } catch (proxyErr) {
-                                console.error('Proxy stream fallback failed:', proxyErr);
-                                controller.error(proxyErr);
-                            }
-                        } else {
-                            controller.error(streamError);
+                            } catch { /* ignore malformed SSE lines */ }
                         }
                     }
+
+                    // Save Model Message to DB
+                    await supabase
+                        .from('messages')
+                        .insert({
+                            chat_id: chatId,
+                            role: 'model',
+                            content: fullText,
+                        });
+
+                    controller.close();
+                } catch (proxyStreamError) {
+                    console.error('Proxy streaming error:', proxyStreamError);
+                    controller.error(proxyStreamError);
                 }
-            });
-        } else {
-            // Fallback: ai.hackclub.com with SSE streaming
-            const proxyMessages: { role: string; content: string }[] = [];
-            if (systemInstruction) {
-                proxyMessages.push({ role: 'system', content: systemInstruction });
             }
-            for (const msg of historyForGemini) {
-                proxyMessages.push({
-                    role: msg.role === 'model' ? 'assistant' : 'user',
-                    content: msg.parts[0].text,
-                });
-            }
-            proxyMessages.push({ role: 'user', content: message });
-
-            const proxyResponse = await fetch('https://ai.hackclub.com/proxy/v1/chat/completions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.HACKCLUB_AI_API_KEY}` },
-                body: JSON.stringify({
-                    model: "google/gemini-2.5-flash",
-                    messages: proxyMessages,
-                    stream: true,
-                })
-            });
-
-            if (!proxyResponse.ok || !proxyResponse.body) {
-                const errText = await proxyResponse.text().catch(() => 'unknown');
-                console.error('Proxy fallback failed:', errText);
-                throw new Error('Both Gemini and fallback proxy failed');
-            }
-
-            const proxyBody = proxyResponse.body;
-            stream = new ReadableStream({
-                async start(controller) {
-                    let fullText = '';
-                    const reader = proxyBody.getReader();
-                    const decoder = new TextDecoder();
-                    let buffer = '';
-                    try {
-                        while (true) {
-                            const { done, value } = await reader.read();
-                            if (done) break;
-                            buffer += decoder.decode(value, { stream: true });
-                            const lines = buffer.split('\n');
-                            buffer = lines.pop() ?? '';
-                            for (const line of lines) {
-                                const trimmed = line.trim();
-                                if (!trimmed.startsWith('data:')) continue;
-                                const data = trimmed.slice(5).trim();
-                                if (data === '[DONE]') continue;
-                                try {
-                                    const parsed = JSON.parse(data);
-                                    const delta = parsed.choices?.[0]?.delta?.content;
-                                    if (delta) {
-                                        fullText += delta;
-                                        controller.enqueue(encoder.encode(delta));
-                                    }
-                                } catch { /* ignore malformed SSE lines */ }
-                            }
-                        }
-
-                        // Save Model Message to DB
-                        await supabase
-                            .from('messages')
-                            .insert({
-                                chat_id: chatId,
-                                role: 'model',
-                                content: fullText,
-                            });
-
-                        controller.close();
-                    } catch (proxyStreamError) {
-                        console.error('Proxy streaming error:', proxyStreamError);
-                        controller.error(proxyStreamError);
-                    }
-                }
-            });
-        }
+        });
 
         const responseHeaders: Record<string, string> = {
             'Content-Type': 'text/plain; charset=utf-8',
@@ -412,7 +257,7 @@ export async function POST(request: Request) {
         });
 
     } catch (error) {
-        console.error('Gemini API Error:', error);
+        console.error('API Error:', error);
 
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (chatId) {
@@ -425,5 +270,3 @@ export async function POST(request: Request) {
         });
     }
 }
-
-
