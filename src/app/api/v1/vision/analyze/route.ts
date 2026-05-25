@@ -74,7 +74,7 @@ export async function POST(request: Request) {
       },
     ];
 
-    const proxyResponse = await fetch(
+    let proxyResponse = await fetch(
       "https://ai.hackclub.com/proxy/v1/chat/completions",
       {
         method: "POST",
@@ -92,8 +92,28 @@ export async function POST(request: Request) {
     //> Checks if the proxy API generated an error, logs it, and halts the process by throwing an exception
     if (!proxyResponse.ok) {
       const errorText = await proxyResponse.text();
-      console.error("Vision proxy failed:", errorText);
-      throw new Error("Vision generation failed");
+      console.warn("Vision hackclub proxy failed, trying ThisiLabs:", errorText);
+      
+      proxyResponse = await fetch(
+        "https://api.thisilabs.com/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.THISILABS_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "gemini-3.1-flash-lite",
+            messages: proxyMessages,
+          }),
+        },
+      );
+      
+      if (!proxyResponse.ok) {
+          const errorText2 = await proxyResponse.text();
+          console.error("Vision thisilabs proxy failed:", errorText2);
+          throw new Error("Vision generation failed");
+      }
     }
 
     const proxyData = await proxyResponse.json();

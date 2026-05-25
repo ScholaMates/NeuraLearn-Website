@@ -81,7 +81,7 @@ export async function POST(request: Request) {
             let title = message ? message.substring(0, 30) + (message.length > 30 ? '...' : '') : 'Image upload';
 
             try {
-                const proxyRes = await fetch('https://ai.hackclub.com/proxy/v1/chat/completions', {
+                let proxyRes = await fetch('https://ai.hackclub.com/proxy/v1/chat/completions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.HACKCLUB_AI_API_KEY}` },
                     body: JSON.stringify({
@@ -89,6 +89,19 @@ export async function POST(request: Request) {
                         messages: [{ role: 'user', content: `Generate a short, descriptive, and engaging title (max 6 words) for a conversation starting with this message. It should capture the essence of the user's intent. Do not use quotes: ${message || "an image"}` }]
                     })
                 });
+                
+                if (!proxyRes.ok) {
+                    console.warn('HackClub proxy title gen failed, trying ThisiLabs');
+                    proxyRes = await fetch('https://api.thisilabs.com/v1/chat/completions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.THISILABS_API_KEY}` },
+                        body: JSON.stringify({
+                            model: "gemini-3.1-flash-lite",
+                            messages: [{ role: 'user', content: `Generate a short, descriptive, and engaging title (max 6 words) for a conversation starting with this message. It should capture the essence of the user's intent. Do not use quotes: ${message || "an image"}` }]
+                        })
+                    });
+                }
+                
                 if (proxyRes.ok) {
                     const proxyData = await proxyRes.json();
                     title = proxyData.choices?.[0]?.message?.content?.trim() || title;
@@ -178,7 +191,7 @@ export async function POST(request: Request) {
 
         proxyMessages.push({ role: 'user', content: finalMessageContent });
 
-        const proxyResponse = await fetch('https://ai.hackclub.com/proxy/v1/chat/completions', {
+        let proxyResponse = await fetch('https://ai.hackclub.com/proxy/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.HACKCLUB_AI_API_KEY}` },
             body: JSON.stringify({
@@ -189,9 +202,23 @@ export async function POST(request: Request) {
         });
 
         if (!proxyResponse.ok || !proxyResponse.body) {
-            const errText = await proxyResponse.text().catch(() => 'unknown');
-            console.error('Proxy failed:', errText);
-            throw new Error(`Proxy error: ${errText}`);
+            console.warn('HackClub Proxy failed, trying ThisiLabs');
+            const thisiModelName = modelName.includes('/') ? modelName.split('/')[1] : modelName;
+            proxyResponse = await fetch('https://api.thisilabs.com/v1/chat/completions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.THISILABS_API_KEY}` },
+                body: JSON.stringify({
+                    model: thisiModelName,
+                    messages: proxyMessages,
+                    stream: true,
+                })
+            });
+
+            if (!proxyResponse.ok || !proxyResponse.body) {
+                const errText = await proxyResponse.text().catch(() => 'unknown');
+                console.error('Proxy failed:', errText);
+                throw new Error(`Proxy error: ${errText}`);
+            }
         }
 
         const encoder = new TextEncoder();

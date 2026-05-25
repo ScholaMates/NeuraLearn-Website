@@ -222,7 +222,7 @@ export async function POST(request: Request) {
       }
       proxyMessages.push({ role: "user", content: text });
 
-      const proxyResponse = await fetch(
+      let proxyResponse = await fetch(
         "https://ai.hackclub.com/proxy/v1/chat/completions",
         {
           method: "POST",
@@ -250,8 +250,39 @@ export async function POST(request: Request) {
       //> Ensures the fallback request was successful, throwing an error if the secondary method also fails
       if (!proxyResponse.ok) {
         const errorText = await proxyResponse.text();
-        console.error("Proxy fallback failed:", errorText);
-        throw new Error("Both Gemini and fallback failed");
+        console.warn("HackClub Proxy fallback failed, trying ThisiLabs:", errorText);
+        
+        const thisiModelName = modelName.includes('/') ? modelName.split('/')[1] : modelName;
+        proxyResponse = await fetch(
+          "https://api.thisilabs.com/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${process.env.THISILABS_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: thisiModelName,
+              messages: proxyMessages,
+              tools: [
+                {
+                  type: "function",
+                  function: {
+                    name: "take_picture",
+                    description:
+                      "Call this tool if the user asks for a photo, to see something, or to describe their surroundings.",
+                  },
+                },
+              ],
+            }),
+          },
+        );
+        
+        if (!proxyResponse.ok) {
+          const errorText2 = await proxyResponse.text();
+          console.error("ThisiLabs fallback failed:", errorText2);
+          throw new Error("Both Gemini and fallbacks failed");
+        }
       }
 
       const proxyData = await proxyResponse.json();
