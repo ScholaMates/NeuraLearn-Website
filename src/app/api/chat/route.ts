@@ -228,8 +228,75 @@ export async function POST(request: Request) {
 
                         controller.close();
                     } catch (streamError) {
-                        console.warn('Gemini streaming error, trying proxy fallback:', streamError);
-                        controller.error(streamError);
+                        console.warn('Gemini streaming error, attempting proxy fallback:', streamError);
+                        if (fullText === '') {
+                            try {
+                                const proxyMessages: { role: string; content: string }[] = [];
+                                if (systemInstruction) {
+                                    proxyMessages.push({ role: 'system', content: systemInstruction });
+                                }
+                                for (const msg of historyForGemini) {
+                                    proxyMessages.push({
+                                        role: msg.role === 'model' ? 'assistant' : 'user',
+                                        content: msg.parts[0].text,
+                                    });
+                                }
+                                proxyMessages.push({ role: 'user', content: message });
+
+                                const proxyResponse = await fetch('https://ai.hackclub.com/proxy/v1/chat/completions', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.HACKCLUB_AI_API_KEY}` },
+                                    body: JSON.stringify({
+                                        model: "google/gemini-2.5-flash",
+                                        messages: proxyMessages,
+                                        stream: true,
+                                    })
+                                });
+
+                                if (proxyResponse.ok && proxyResponse.body) {
+                                    const reader = proxyResponse.body.getReader();
+                                    const decoder = new TextDecoder();
+                                    let buffer = '';
+                                    while (true) {
+                                        const { done, value } = await reader.read();
+                                        if (done) break;
+                                        buffer += decoder.decode(value, { stream: true });
+                                        const lines = buffer.split('\n');
+                                        buffer = lines.pop() ?? '';
+                                        for (const line of lines) {
+                                            const trimmed = line.trim();
+                                            if (!trimmed.startsWith('data:')) continue;
+                                            const data = trimmed.slice(5).trim();
+                                            if (data === '[DONE]') continue;
+                                            try {
+                                                const parsed = JSON.parse(data);
+                                                const delta = parsed.choices?.[0]?.delta?.content;
+                                                if (delta) {
+                                                    fullText += delta;
+                                                    controller.enqueue(encoder.encode(delta));
+                                                }
+                                            } catch { /* ignore malformed SSE lines */ }
+                                        }
+                                    }
+                                    
+                                    await supabase.from('messages').insert({
+                                        chat_id: chatId,
+                                        role: 'model',
+                                        content: fullText,
+                                    });
+                                    
+                                    controller.close();
+                                    return;
+                                } else {
+                                    throw new Error('Proxy fallback also failed');
+                                }
+                            } catch (proxyErr) {
+                                console.error('Proxy stream fallback failed:', proxyErr);
+                                controller.error(proxyErr);
+                            }
+                        } else {
+                            controller.error(streamError);
+                        }
                     }
                 }
             });
