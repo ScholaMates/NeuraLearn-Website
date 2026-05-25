@@ -11,9 +11,12 @@ export async function POST(request: Request) {
     let chatId: string | undefined;
 
     try {
-        const body = await request.json();
-        const { message, chatId: providedChatId, skipUserSave } = body;
-        chatId = providedChatId;
+        const formData = await request.formData();
+        const message = formData.get("message") as string;
+        let chatId = formData.get("chatId") as string | undefined;
+        const providedChatId = chatId;
+        const skipUserSave = formData.get("skipUserSave") === "true";
+        const file = formData.get("file") as File | null;
 
         if (!message) {
             return new Response(JSON.stringify({ error: 'Message is required' }), { status: 400 });
@@ -200,7 +203,23 @@ export async function POST(request: Request) {
                 },
             });
 
-            geminiResult = await chat.sendMessageStream(message);
+            let messageContent: any = message;
+            if (file) {
+                const arrayBuffer = await file.arrayBuffer();
+                const buffer = Buffer.from(arrayBuffer);
+                const base64Data = buffer.toString('base64');
+                messageContent = [
+                    message,
+                    {
+                        inlineData: {
+                            data: base64Data,
+                            mimeType: file.type
+                        }
+                    }
+                ];
+            }
+
+            geminiResult = await chat.sendMessageStream(messageContent);
         } catch (geminiInitError) {
             console.warn('Gemini API failed, falling back to hackclub proxy:', geminiInitError);
             useProxy = true;
