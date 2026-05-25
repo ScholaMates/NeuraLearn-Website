@@ -81,7 +81,7 @@ export async function POST(request: Request) {
 
                 historyForGemini = validHistory.map(msg => ({
                     role: msg.role,
-                    parts: [{ text: msg.content }],
+                    parts: [{ text: msg.content || " " }],
                 }));
             }
         }
@@ -104,6 +104,7 @@ export async function POST(request: Request) {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.HACKCLUB_AI_API_KEY}` },
                         body: JSON.stringify({
+                            model: "google/gemini-2.5-flash",
                             messages: [{ role: 'user', content: `Generate a short, descriptive, and engaging title (max 6 words) for a conversation starting with this message. It should capture the essence of the user's intent. Do not use quotes: ${message}` }]
                         })
                     });
